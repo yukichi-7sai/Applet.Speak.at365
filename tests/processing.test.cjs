@@ -143,8 +143,77 @@ test("processor applies replacement before splitting, uses exclusive policies an
     { startSeconds: Infinity },
     { startMode: "unknown" },
     { dictionaryIgnoreCase: "false" },
+    { prefixText: null },
+    { suffixText: 1 },
   ])
     assert.throws(() => settings(patch));
+});
+
+test("configured text is joined before dictionary conversion and splitting without changing the caller input", () => {
+  const process = createProcessor();
+  const index = dictionaryIndex(
+    rows([
+      ["hello", "ハロー"],
+      ["python", "とても長い置換結果"],
+      ["goodbye", "さようなら"],
+    ]),
+  );
+  const input = "Pythonです。次の文章です。";
+  const options = {
+    prefixText: "Hello!",
+    suffixText: "Goodbye.",
+    targetCharacters: 8,
+  };
+  const plan = process(input, options, "joined", index);
+  assert.equal(
+    plan.text,
+    "ハロー!\nとても長い置換結果です。次の文章です。\nさようなら.",
+  );
+  assert.equal(plan.segments.join(""), plan.text);
+  assert(plan.segments.length > 1);
+  assert(
+    plan.segments.some((segment) => segment.includes("とても長い置換結果")),
+  );
+  assert.equal(input, "Pythonです。次の文章です。");
+  assert.deepEqual(options, {
+    prefixText: "Hello!",
+    suffixText: "Goodbye.",
+    targetCharacters: 8,
+  });
+  const raw = process(
+    input,
+    { ...options, dictionaryEnabled: false, splitEnabled: false },
+    "raw",
+    index,
+  );
+  assert.deepEqual(raw.segments, [
+    "Hello!\nPythonです。次の文章です。\nGoodbye.",
+  ]);
+});
+
+test("blank additions contribute no separators while nonblank whitespace and newlines are preserved", () => {
+  const process = createProcessor(),
+    input = "  本文です。  ";
+  for (const [i, value] of [
+    {},
+    { prefixText: "", suffixText: "" },
+    { prefixText: " \n\t", suffixText: "\r\n " },
+  ].entries())
+    assert.equal(process(input, value, i).text, input);
+  assert.equal(
+    process(input, { prefixText: "前文" }, "prefix").text,
+    "前文\n  本文です。  ",
+  );
+  assert.equal(
+    process(input, { suffixText: "後文" }, "suffix").text,
+    "  本文です。  \n後文",
+  );
+  assert.equal(
+    process(input, { prefixText: " 前文\n続き ", suffixText: " 後文 " }, "both")
+      .text,
+    " 前文\n続き \n  本文です。  \n 後文 ",
+  );
+  assert.throws(() => process(" \n ", { prefixText: "前文" }, "empty-body"));
 });
 test("a large personal dictionary and long input remain complete without caps", () => {
   const dictionary = rows(

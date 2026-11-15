@@ -1,5 +1,15 @@
 # 検証記録
 
+## 2026-11-16 読み上げの前後に文章を追加
+
+- 0.6.0、minimumHostVersion 0.249.0。通常設定へ`prefixText`/`suffixText`（前に付ける文章/後に付ける文章、初期値は空文字）を追加した。空欄・空白や改行だけの項目は除き、前文・元の本文・後文を改行1つで結合してから辞書変換・自動分割する。辞書変換/分割がOFFでも追加する。MCP本文の必須条件、4入力、`instructions`、accepted応答と本体/RelayのAPIは維持する。設定追加のためマイナー更新した。
+- 発行前レビューで追加位置と処理順、文字列型/空欄の扱い、元の本文/非空項目の空白保持、設定snapshot、辞書の置換範囲を保つ分割、プレビュー再更新時の重複防止、共有の設定部品、配布対象を確認した。プレビューは入力へ元の本文、出力へ前後文を含む全体を表示する。独自の設定UI・保存ファイル・待機期限は追加せず、未解決の指摘なし。
+- 変更前の回帰失敗を保存し、固定Node 26.13.1で単体31件、publish内でも同31件が成功。前後文への辞書変換と分割、置換語の途中を切らないこと、空欄/空白だけ/片側だけ/内部改行、辞書変換と分割のOFF、本文/ニュアンスの保持、プレビュー再更新、連続処理でStorageを読まないことを確認した。ログは`.artifacts/text-additions-before-20261116.log`、`text-additions-unit-final-20261116.log`、`text-additions-publish-20261116.log`。
+- 開発原本と固定AppDock 0.249.2で辞書画面8群、発行済みSpeakと同固定EXEで辞書画面8群・本体結合10群が成功。前後文の保存/ホスト再起動/空白/クリア、全体の辞書プレビュー、CSV原文保全、既存の10万件取り込み・優先順・再取り込み・共有/PC専用・明暗/狭幅を確認した。発行物ではMCP本文`Silent fixture`へ前後の`AppDock`を追加し、TTSへ`アップドック改\nSilent fixture\nアップドック改`と別の`instructions: gentle`が届くことを検査。受付後の前後設定クリア・公開OFF・切断・Applet停止でも、確定済みの同じ読み上げを再試行せず継続する。実サーバー品質/物理音声はfixtureの対象外。
+- 画面ログは`.artifacts/text-additions-source-ui-20261116.log`、`text-additions-fixed-ui-20261116.log`、本体の`text-additions-fixed-integration-20261116.log`。画面profileは`dictionary-ui-1794780802346/`（原本）と`dictionary-ui-1794781378389/`（発行物）、本体結合は`applet-api-portable-1794781360953/`。固定EXE SHA-256=`52237d0daa9de5b45baecdc7b8aea88275dce5ba94931d88b369eccb76ffde19`。再現は本体`dev.bat exec node`から本repoの`scripts/dictionary-ui-test.cjs <固定EXE> <Speakの原本または発行Applet>`、本体の`scripts/applet-api-ui-test.cjs <固定EXE>`（`APPDOCK_TEST_SPEAK_APPLET`に発行Appletを指定）を直列に実行する。
+- 共通publishの成功後、feedの版/最低ホスト版/容量/SHA-256と、ZIP全5項目・repo原本・展開済み発行物を照合した。ZIP SHA-256=`f96d4067ade3f6d18a09bef3ea560c76f98a66ffc25e50fcc251eba030b3756b`。各試験の5入力ハッシュも発行物と一致し、証跡は`.artifacts/text-additions-publication-20261116.json`。辞書エンジン/保存モジュールと依存を変更していないため前項のメモリ測定は再実行せず、今回の単体/結合/画面の成功は以後の記録追記とコミットに再利用する。本体製品の再発行、push・外部公開・実利用先配置は行っていない。
+- 終了後に通常ユーザー環境でプロセス参照と対象/配下の再解析ポイントを検査し、古い成功の`dictionary-ui-1794778469069/`、`dictionary-ui-1794776497597/`と本体の`applet-api-portable-1794763889567/`を整理した。各方式の直近3成功、失敗/不明分、共通ランタイム・固定build・発行物は保持。旧結果JSON/ハッシュと削除結果は`.artifacts/text-additions-cleanup-20261116.json`に保存し、保留/失敗0件。
+
 ## 2026-11-16 辞書変換の大小文字設定
 
 - 0.5.0、minimumHostVersion 0.249.0。「自動置き換え」を「辞書変換」へ改称し、`dictionaryIgnoreCase`（英字の大文字・小文字を区別しない、初期true）を追加した。ONは半角英字A–Z/a–zを同一視し、OFFは元の表記に一致する登録を使う。単語境界・最長一致・置換結果の非再置換・CSV原文/形式を維持する。設定追加のためマイナー更新し、本体/SDK/Runtimeの追加変更はない。

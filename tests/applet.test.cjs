@@ -148,6 +148,65 @@ test("MCP receipt waits for host acceptance without waiting for generation", asy
   assert.deepEqual(await pending, { accepted: true });
 });
 
+test("configured additions share the preview and MCP pipeline and can be cleared without dictionary reads", async () => {
+  const f = fixture();
+  f.storage.data.set(
+    "shared/user.csv",
+    "hello,ハロー\npython,パイソン\nenglish,イングリッシュ",
+  );
+  await f.start();
+  for (const key of ["prefixText", "suffixText"]) {
+    assert.equal(
+      manifest.settings.find((setting) => setting.key === key).default,
+      "",
+    );
+    assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
+  }
+  assert.deepEqual(
+    manifest.settingSections.find((section) => section.id === "text-additions")
+      .settings,
+    ["prefixText", "suffixText"],
+  );
+  const reads = f.storage.reads.length;
+  for (const [revision, value] of [
+    { prefixText: "Hello", suffixText: "Python", splitEnabled: false },
+    { prefixText: "", suffixText: "", splitEnabled: false },
+  ].entries()) {
+    f.set(value);
+    const preview = await f.invoke("text.preview", { text: "English" });
+    const expected =
+      revision === 0 ? "ハロー\nイングリッシュ\nパイソン" : "イングリッシュ";
+    assert.equal(preview.dialog.values.text, "English");
+    assert.equal(preview.dialog.values.replaced, expected);
+    assert.equal(
+      (await f.invoke("text.preview", preview.dialog.values)).dialog.values
+        .replaced,
+      expected,
+    );
+    assert.equal(f.calls.length, revision);
+    const input = { text: "English", instructions: "quiet" };
+    await f.extension.onMcpTool(
+      {
+        moduleId: "at365.speak.read-aloud",
+        name: "appdock_speech_speak",
+        input,
+        settings: { revision: String(revision), storageScope: "shared", value },
+      },
+      f.signal,
+    );
+    assert.deepEqual(f.calls.at(-1), [
+      "tts.sequences.speak",
+      {
+        segments: [expected],
+        startPolicy: { mode: "first" },
+        instructions: "quiet",
+      },
+    ]);
+    assert.deepEqual(input, { text: "English", instructions: "quiet" });
+  }
+  assert.equal(f.storage.reads.length, reads);
+});
+
 test("dictionary conversion exposes a default-on case setting shared by preview and MCP without reloading files", async () => {
   const f = fixture();
   f.storage.data.set(

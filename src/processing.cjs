@@ -208,6 +208,8 @@ function splitText(text, target, protectedRanges = []) {
 }
 function settings(value = {}) {
   const result = {
+    prefixText: "",
+    suffixText: "",
     splitEnabled: true,
     targetCharacters: 300,
     dictionaryEnabled: true,
@@ -218,6 +220,8 @@ function settings(value = {}) {
     ...value,
   };
   if (
+    typeof result.prefixText !== "string" ||
+    typeof result.suffixText !== "string" ||
     !Number.isSafeInteger(result.targetCharacters) ||
     result.targetCharacters < 1 ||
     !Number.isSafeInteger(result.startCount) ||
@@ -243,13 +247,16 @@ function createProcessor() {
       config = settings(value);
       cachedRevision = revision;
     }
+    const joined = [config.prefixText, text, config.suffixText]
+      .filter((part) => part.trim())
+      .join("\n");
     const replaced = config.dictionaryEnabled
       ? replaceText(
-          text,
+          joined,
           preparedIndex ?? emptyIndex,
           config.dictionaryIgnoreCase,
         )
-      : { text, ranges: [] };
+      : { text: joined, ranges: [] };
     const segments = config.splitEnabled
       ? splitText(replaced.text, config.targetCharacters, replaced.ranges)
       : [replaced.text];

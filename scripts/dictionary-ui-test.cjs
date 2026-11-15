@@ -171,6 +171,14 @@ async function useShared() {
   try {
     await open();
     await page
+      .getByRole("heading", { name: "前後の文章", exact: true })
+      .waitFor();
+    for (const name of ["前に付ける文章", "後に付ける文章"])
+      assert.equal(
+        await page.getByRole("textbox", { name, exact: true }).inputValue(),
+        "",
+      );
+    await page
       .getByRole("heading", { name: "辞書変換", exact: true })
       .waitFor();
     const caseChoice = () =>
@@ -379,6 +387,34 @@ async function useShared() {
     await preview("共通 個人優先 別語", "改A 個人 べつ");
     checks.push(
       "shared/device dictionaries and the case-sensitive choice persist across host restart; switching back restores folded matching",
+    );
+
+    const additionField = (name) =>
+      page.getByRole("textbox", { name, exact: true });
+    const saveAddition = async (name, value) => {
+      await tab("settings");
+      await additionField(name).fill(value);
+      await page.keyboard.press("Enter");
+      await settleSettings(page);
+    };
+    await saveAddition("前に付ける文章", "Hello!");
+    await saveAddition("後に付ける文章", "Python.");
+    await preview("English", "ハロー!\nイングリッシュ\nパイソン.");
+    assert.equal(readUser(), good);
+    await host.close();
+    await open();
+    assert.equal(await additionField("前に付ける文章").inputValue(), "Hello!");
+    assert.equal(await additionField("後に付ける文章").inputValue(), "Python.");
+    await preview("English", "ハロー!\nイングリッシュ\nパイソン.");
+    await saveAddition("前に付ける文章", "   ");
+    await saveAddition("後に付ける文章", " ");
+    await preview("English", "イングリッシュ");
+    await saveAddition("前に付ける文章", "");
+    await saveAddition("後に付ける文章", "");
+    await preview("English", "イングリッシュ");
+    assert.equal(readUser(), good);
+    checks.push(
+      "prefix and suffix save and survive restart, are included in dictionary preview, and empty or whitespace-only values add no text",
     );
 
     await tab("source-dictionaries");

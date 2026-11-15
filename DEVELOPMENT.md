@@ -8,6 +8,8 @@
 
 「辞書変換」の`dictionaryIgnoreCase`は半角英字の照合方式を選ぶ通常設定で、初期true。同じ索引に元の表記と優先順位を持たせ、プレビュー/MCPの設定snapshotから選択する。切り替えで辞書ファイルを読まず、索引も再構築しない。
 
+前後の文章は通常の文字列設定`prefixText`/`suffixText`へ保存し、両方の初期値を空にする。`createProcessor()`で非空の前文・本文・後文を改行1つで結合してから、既存の辞書変換と分割へ渡す。プレビューの入力は元の本文を保持し、出力へ結合・変換した全体を表示する。MCP入力の4項目と本体/RelayのAPIは変更せず、自己設定snapshotに前後文を含める。
+
 設定タブと補助ボタンは[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。単語一覧・配布辞書一覧・優先順・編集ダイアログは本体の共通部品を使用する。通常設定と`helpers`へ辞書を複製しない。AppDock 0.249.0以降の[ファイルStorage](../AppDock.at365/docs/storage-files.md)を`configuration` scopeで使う。既存のSettings内の辞書は使用せず、移行を実装しない。
 
 `test.bat`は本体の固定Nodeで`tests/*.test.cjs`を実行する。`publish.bat`はテスト後に明示したファイルだけを発行先の`extensions/at365.speak`へ配置し、共通pack-applet-update.ps1で更新ZIP/JSONを作る。発行先は共通publish-paths.ps1で解決する。外部公開と実利用先への配置は別操作。

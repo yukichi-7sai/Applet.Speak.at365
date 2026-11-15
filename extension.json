@@ -5,7 +5,7 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "minimumHostVersion": "0.249.0",
   "runtime": "node",
   "entry": "index.cjs",
@@ -18,6 +18,20 @@
     "storage"
   ],
   "settings": [
+    {
+      "key": "prefixText",
+      "title": "前に付ける文章",
+      "type": "string",
+      "default": "",
+      "description": "本文の前へ、改行で区切って追加します。空欄なら追加しません。"
+    },
+    {
+      "key": "suffixText",
+      "title": "後に付ける文章",
+      "type": "string",
+      "default": "",
+      "description": "本文の後へ、改行で区切って追加します。空欄なら追加しません。"
+    },
     {
       "key": "splitEnabled",
       "title": "文章を自動分割する",
@@ -97,6 +111,12 @@
       "mcpModules": ["at365.speak.read-aloud"]
     },
     {
+      "id": "text-additions",
+      "title": "前後の文章",
+      "description": "追加した文章も辞書変換・自動分割の対象になります。",
+      "settings": ["prefixText", "suffixText"]
+    },
+    {
       "id": "splitting",
       "title": "自動分割",
       "settings": ["splitEnabled", "targetCharacters"]
@@ -116,7 +136,13 @@
     {
       "id": "settings",
       "title": "設定",
-      "sections": ["publication", "splitting", "playback", "dictionary"],
+      "sections": [
+        "publication",
+        "text-additions",
+        "splitting",
+        "playback",
+        "dictionary"
+      ],
       "provider": "helpers/settings"
     },
     {
@@ -394,6 +420,8 @@
       "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",
       "settingsKeys": [
+        "prefixText",
+        "suffixText",
         "splitEnabled",
         "targetCharacters",
         "startMode",
