@@ -147,6 +147,56 @@ test("MCP receipt waits for host acceptance without waiting for generation", asy
   accept({ completion: "accepted" });
   assert.deepEqual(await pending, { accepted: true });
 });
+
+test("dictionary conversion exposes a default-on case setting shared by preview and MCP without reloading files", async () => {
+  const f = fixture();
+  f.storage.data.set(
+    "shared/user.csv",
+    "hello,ハロー\npython,パイソン\nkey,キー\nboard,ボード",
+  );
+  await f.start();
+  assert.equal(
+    manifest.settingSections.find((section) => section.id === "dictionary")
+      .title,
+    "辞書変換",
+  );
+  assert.equal(
+    manifest.settings.find((setting) => setting.key === "dictionaryIgnoreCase")
+      .default,
+    true,
+  );
+  assert(
+    manifest.mcpToolModules[0].settingsKeys.includes("dictionaryIgnoreCase"),
+  );
+  const reads = f.storage.reads.length,
+    text = "Hello PYTHON keyboard key board";
+  for (const [revision, flag] of [undefined, false, true, false].entries()) {
+    const value = {
+      splitEnabled: false,
+      ...(flag === undefined ? {} : { dictionaryIgnoreCase: flag }),
+    };
+    const expected =
+      flag === false
+        ? "Hello PYTHON keyboard キー ボード"
+        : "ハロー パイソン keyboard キー ボード";
+    f.set(value);
+    assert.equal(
+      (await f.invoke("text.preview", { text })).dialog.values.replaced,
+      expected,
+    );
+    await f.extension.onMcpTool(
+      {
+        moduleId: "at365.speak.read-aloud",
+        name: "appdock_speech_speak",
+        input: { text },
+        settings: { revision: String(revision), storageScope: "shared", value },
+      },
+      f.signal,
+    );
+    assert.deepEqual(f.calls.at(-1)[1].segments, [expected]);
+  }
+  assert.equal(f.storage.reads.length, reads);
+});
 test("preview is read-only, CSV import is previewed, and stale/external requests cannot save", async () => {
   const f = fixture();
   await f.start();

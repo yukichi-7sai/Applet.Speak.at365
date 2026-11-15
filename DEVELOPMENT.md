@@ -6,6 +6,8 @@
 
 辞書の検索は`src/dictionary-engine.cjs`の連続配列型トライで行う。[辞書エンジンとCSV保存](docs/dictionary-engine.md)で検索契約・保存構成・メモリ上の切り替えを定義する。
 
+「辞書変換」の`dictionaryIgnoreCase`は半角英字の照合方式を選ぶ通常設定で、初期true。同じ索引に元の表記と優先順位を持たせ、プレビュー/MCPの設定snapshotから選択する。切り替えで辞書ファイルを読まず、索引も再構築しない。
+
 設定タブと補助ボタンは[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。単語一覧・配布辞書一覧・優先順・編集ダイアログは本体の共通部品を使用する。通常設定と`helpers`へ辞書を複製しない。AppDock 0.249.0以降の[ファイルStorage](../AppDock.at365/docs/storage-files.md)を`configuration` scopeで使う。既存のSettings内の辞書は使用せず、移行を実装しない。
 
 `test.bat`は本体の固定Nodeで`tests/*.test.cjs`を実行する。`publish.bat`はテスト後に明示したファイルだけを発行先の`extensions/at365.speak`へ配置し、共通pack-applet-update.ps1で更新ZIP/JSONを作る。発行先は共通publish-paths.ps1で解決する。外部公開と実利用先への配置は別操作。

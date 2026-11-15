@@ -139,13 +139,22 @@ async function storeCase() {
       .slice(0, 10000),
     processor = processing.createProcessor();
   for (let i = 0; i < 30; i++)
-    processor(text, { splitEnabled: false }, i, store.snapshot.index);
+    processor(
+      text,
+      { splitEnabled: false, dictionaryIgnoreCase: i % 2 === 0 },
+      i,
+      store.snapshot.index,
+    );
   const elapsed = [];
   for (let i = 0; i < 200; i++) {
     const start = performance.now();
     assert.ok(
-      processor(text, { splitEnabled: false }, 30 + i, store.snapshot.index)
-        .text,
+      processor(
+        text,
+        { splitEnabled: false, dictionaryIgnoreCase: i % 2 === 0 },
+        30 + i,
+        store.snapshot.index,
+      ).text,
     );
     elapsed.push(performance.now() - start);
   }
@@ -192,7 +201,7 @@ if (process.argv[2] === "--store-case") {
     node: process.version,
     cpu: os.cpus()[0]?.model,
     method:
-      "Fresh Node process per case; two real UTF-8 CSV files and one user override, merged resident DictionaryStore including CSV text, parsed rows and packed index. Retained heap plus ArrayBuffers after explicit GC. RSS includes Node; peak includes fixture creation. Excludes host/renderer/IPC/TTS. 230 requests change unrelated settings revisions without reads or rebuilds.",
+      "Fresh Node process per case; two real UTF-8 CSV files and one user override, merged resident DictionaryStore including CSV text, parsed rows and packed index. Retained heap plus ArrayBuffers after explicit GC. RSS includes Node; peak includes fixture creation. Excludes host/renderer/IPC/TTS. 230 requests alternate ASCII case modes and settings revisions without reads or rebuilds.",
     inputs: Object.fromEntries(
       [
         "src/dictionary-store.cjs",

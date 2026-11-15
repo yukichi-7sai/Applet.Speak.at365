@@ -11,6 +11,51 @@ async function fixture() {
   return { ...storage, store };
 }
 
+test("case-insensitive matching keeps user and source order priority across differently capitalized entries", async () => {
+  const f = await fixture(),
+    s = f.store;
+  await s.importSource(
+    "hello,第一",
+    "A",
+    undefined,
+    s.snapshot.revision,
+    authorize,
+  );
+  await s.importSource(
+    "HELLO,第二",
+    "B",
+    undefined,
+    s.snapshot.revision,
+    authorize,
+  );
+  assert.equal(
+    replaceText("HELLO hello", s.snapshot.index, true).text,
+    "第一 第一",
+  );
+  await s.updateSources(
+    (entries) => entries.reverse(),
+    s.snapshot.revision,
+    authorize,
+  );
+  assert.equal(
+    replaceText("hello HELLO", s.snapshot.index, true).text,
+    "第二 第二",
+  );
+  await s.replaceUser("HeLLo,個人", s.snapshot.revision, authorize);
+  const index = s.snapshot.index,
+    generation = s.generation,
+    reads = f.reads.length;
+  for (const flag of [false, true, false, true]) {
+    assert.equal(
+      replaceText("hello HELLO HeLLo", index, flag).text,
+      flag ? "個人 個人 個人" : "第一 第二 個人",
+    );
+  }
+  assert.equal(s.snapshot.index, index);
+  assert.equal(s.generation, generation);
+  assert.equal(f.reads.length, reads);
+});
+
 test("switching scope while an edit is authorized rejects the stale save", async () => {
   const f = await fixture();
   const before = f.store.snapshot;

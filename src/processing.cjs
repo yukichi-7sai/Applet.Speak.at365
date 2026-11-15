@@ -115,8 +115,8 @@ function exportCsv(rows) {
 function dictionaryIndex(rows) {
   return compileDictionary(validateDictionary(rows));
 }
-function replaceText(text, index) {
-  return index.replace(text);
+function replaceText(text, index, ignoreCase = false) {
+  return index.replace(text, ignoreCase);
 }
 const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
 function splitText(text, target, protectedRanges = []) {
@@ -211,6 +211,7 @@ function settings(value = {}) {
     splitEnabled: true,
     targetCharacters: 300,
     dictionaryEnabled: true,
+    dictionaryIgnoreCase: true,
     startMode: "first",
     startCount: 2,
     startSeconds: 0,
@@ -226,6 +227,7 @@ function settings(value = {}) {
     result.startSeconds < 0 ||
     typeof result.splitEnabled !== "boolean" ||
     typeof result.dictionaryEnabled !== "boolean" ||
+    typeof result.dictionaryIgnoreCase !== "boolean" ||
     !["first", "count", "all", "delay"].includes(result.startMode)
   )
     throw new InputError("読み上げ設定を確認してください。");
@@ -242,7 +244,11 @@ function createProcessor() {
       cachedRevision = revision;
     }
     const replaced = config.dictionaryEnabled
-      ? replaceText(text, preparedIndex ?? emptyIndex)
+      ? replaceText(
+          text,
+          preparedIndex ?? emptyIndex,
+          config.dictionaryIgnoreCase,
+        )
       : { text, ranges: [] };
     const segments = config.splitEnabled
       ? splitText(replaced.text, config.targetCharacters, replaced.ranges)

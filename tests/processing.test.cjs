@@ -142,6 +142,7 @@ test("processor applies replacement before splitting, uses exclusive policies an
     { startSeconds: -1 },
     { startSeconds: Infinity },
     { startMode: "unknown" },
+    { dictionaryIgnoreCase: "false" },
   ])
     assert.throws(() => settings(patch));
 });
@@ -161,15 +162,22 @@ test("a large personal dictionary and long input remain complete without caps", 
 });
 
 // A deliberately simple independent matcher checks behavior, not trie layout.
-function referenceReplace(text, dictionary) {
+function referenceReplace(text, dictionary, ignoreCase = false) {
   const parts = [],
     ranges = [];
   const ascii = (character) => !!character && /^[A-Za-z0-9_]$/.test(character);
+  const fold = (value) =>
+    value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
   let outputLength = 0;
   for (let i = 0; i < text.length;) {
     let found;
     for (const row of dictionary) {
-      if (!text.startsWith(row.source, i)) continue;
+      if (
+        ignoreCase
+          ? fold(text.slice(i, i + row.source.length)) !== fold(row.source)
+          : !text.startsWith(row.source, i)
+      )
+        continue;
       const end = i + row.source.length,
         before = text.charCodeAt(end - 1),
         after = text.charCodeAt(end);
@@ -254,11 +262,69 @@ test("compiled dictionary preserves literal matching for unsorted Unicode, phras
       Array.from({ length: 300 }, () => units[random(units.length)]).join("") +
       " " +
       [...sources].join(" ");
-    assert.deepEqual(
-      replaceText(text, dictionaryIndex(dictionary)),
-      referenceReplace(text, dictionary),
-    );
+    const index = dictionaryIndex(dictionary);
+    for (const ignoreCase of [false, true])
+      assert.deepEqual(
+        replaceText(text, index, ignoreCase),
+        referenceReplace(text, dictionary, ignoreCase),
+      );
   }
+});
+
+test("one index switches ASCII case matching while preserving priority, boundaries, longest matches and ranges", () => {
+  const dictionary = rows([
+    ["python", "パイソン"],
+    ["Python", "別の読み"],
+    ["HELLO", "先頭の読み"],
+    ["hello", "後の読み"],
+    ["JavaScript", "ジャヴァスクリプト"],
+    ["key", "キー"],
+    ["board", "ボード"],
+    ["A日", "短い"],
+    ["a日本", "長い"],
+    ["😀ABC", "絵文字"],
+    ["Ä", "非ASCII"],
+    ["Ａ", "全角"],
+  ]);
+  const index = dictionaryIndex(dictionary);
+  const text =
+    "python Python PYTHON HELLO hello Hello JavaScript JAVASCRIPT keyboard key board MyPython A日本 😀abc Ä ä Ａ ａ";
+  for (const ignoreCase of [false, true])
+    assert.deepEqual(
+      replaceText(text, index, ignoreCase),
+      referenceReplace(text, dictionary, ignoreCase),
+    );
+  assert.equal(
+    replaceText("Hello PYTHON JAVASCRIPT keyboard key board", index, true).text,
+    "先頭の読み パイソン ジャヴァスクリプト keyboard キー ボード",
+  );
+  assert.equal(
+    replaceText("hello Python Hello", index, false).text,
+    "後の読み 別の読み Hello",
+  );
+  assert.equal(replaceText("A日本", index, false).text, "短い本");
+  assert.equal(replaceText("A日本", index, true).text, "長い");
+  assert.equal(replaceText("ä ａ", index, true).text, "ä ａ");
+});
+
+test("many spellings of one word retain their individual readings and a stable first-priority winner", () => {
+  const dictionary = rows(
+    Array.from({ length: 256 }, (_, mask) => [
+      [..."caseword"]
+        .map((letter, i) => (mask & (1 << i) ? letter.toUpperCase() : letter))
+        .join(""),
+      "読み" + mask,
+    ]).reverse(),
+  );
+  const index = dictionaryIndex(dictionary),
+    first = dictionary[0].replacement;
+  for (const row of dictionary) {
+    assert.equal(replaceText(row.source, index, false).text, row.replacement);
+    assert.equal(replaceText(row.source, index, true).text, first);
+  }
+  dictionary[0].replacement = "編集中";
+  dictionary.length = 0;
+  assert.equal(replaceText("CaSeWoRd", index, true).text, first);
 });
 test("compiled dictionary owns a stable snapshot and handles empty and deep dictionaries", () => {
   const dictionary = rows([

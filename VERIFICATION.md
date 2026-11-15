@@ -1,5 +1,16 @@
 # 検証記録
 
+## 2026-11-16 辞書変換の大小文字設定
+
+- 0.5.0、minimumHostVersion 0.249.0。「自動置き換え」を「辞書変換」へ改称し、`dictionaryIgnoreCase`（英字の大文字・小文字を区別しない、初期true）を追加した。ONは半角英字A–Z/a–zを同一視し、OFFは元の表記に一致する登録を使う。単語境界・最長一致・置換結果の非再置換・CSV原文/形式を維持する。設定追加のためマイナー更新し、本体/SDK/Runtimeの追加変更はない。
+- 発行前レビューでASCII同一視とUnicode/UTF-16位置、大小文字衝突の優先順位、入力行から独立した索引、空/長い語、MCP設定snapshotと初期値、保存範囲/再起動、配布対象を確認した。1本の連続配列型トライに元の表記範囲と優先置換先を保持し、区別する場合の複数表記は二分探索する。設定変更でファイルを読み直さず、索引を再構築しない。未解決の指摘なし。
+- 変更前の不一致を再現した後、固定Node 26.13.1の単体28件とpublish内の同28件が成功。独立した逐次比較による100組×両方式の結果/範囲、同じ語の256表記、大小文字の違う登録間のユーザー優先/配布順、Unicode・長い語・10万語、プレビューとMCPの初期値/ON/OFF/再読込なしを検証。ログは`.artifacts/case-conversion-before-20261116.log`、`case-conversion-unit-final-20261116.log`、`case-conversion-publish-20261116.log`。
+- 開発原本と固定AppDock 0.249.2で辞書画面7群、発行済みSpeakと同固定EXEで既存結合10群・辞書画面7群が成功。新セクションと初期ON、即時切り替え、OFF保存後のホスト再起動、再度ON、未登録の`keyboard`や英単語内の保護、CSV原文/辞書順序/共有・PC専用/明暗と狭幅を確認した。発行済み辞書画面profile=`.artifacts/dictionary-ui-1794778718077/`、本体結合profile=`applet-api-portable-1794778700728/`。ログは`case-conversion-source-ui-20261116.log`、`case-conversion-fixed-ui-20261116.log`と本体の`case-conversion-fixed-integration-20261116.log`。固定EXE SHA-256=`52237d0daa9de5b45baecdc7b8aea88275dce5ba94931d88b369eccb76ffde19`。
+- 指定されたBEP由来の辞書とユーザー辞書を読み取り専用で読み、`Hello`/`Python`/`JavaScript`/`English`がONでは登録された読みに、OFFでは元の表記になることを照合した。`keyboard`は両方で未置換、`key`と`board`はそれぞれ変換される。利用者のファイルは変更していない。証跡は`.artifacts/case-conversion-bep-20261116.log`。
+- 2つの実CSVを使う合成データの別プロセス測定で、CSV/編集用行/両方式を使える索引の保持増分（ヒープ+ArrayBuffer）は5万件27.91MiB、10万件55.59MiB。10万件の準備705.001ms、1万文字の処理中央値0.273ms。230回の設定切り替え/処理後も読込5回・索引世代1のまま。Node全体RSS 227.82MiB、fixture作成等も含むピーク534.19MiBは保持量と区別する。ホスト/renderer/IPC/TTSを含む全体測定ではない。証跡は`.artifacts/case-conversion-benchmark-20261116/report.json`。
+- 更新feedの版/最低ホスト版/容量/SHA-256、ZIP全5項目、repo原本と展開済み発行物を照合した。ZIP SHA-256=`f85c7909073ffbb72943fb313245138e59801893aa2f07c19e7a0b40f28cffd8`。証跡は`.artifacts/case-conversion-publication-20261116.json`。制限環境の初回pullはDNSで失敗したが、通常環境で再実行して最新を確認した。push・外部公開・実利用先配置は行っていない。
+- 全試験終了後、プロセス参照と再解析ポイントを確認し、古い成功の辞書画面2フォルダー・本体結合1フォルダーを整理。各方式の直近3成功、失敗記録、共通ランタイム、固定build、発行先を保持した。削除名/旧結果/ハッシュは`.artifacts/case-conversion-cleanup-20261116.json`に記録した。
+
 ## 2026-11-16 重複CSVの取り込み
 
 - 0.4.1。CSV内に同じ置換元が複数あっても拒否せず、先のレコードを採用するよう修正。重複を含むCSV原文を保存し、プレビュー・件数・検索索引は採用行から作る。ユーザー最優先/配布辞書の上段優先は維持する。手動の単語追加/編集は既存語の重複を入力エラーとし、列数・空白だけの値・不正な引用符は重複行でも検証する。

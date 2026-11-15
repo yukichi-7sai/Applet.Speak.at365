@@ -5,7 +5,7 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "minimumHostVersion": "0.249.0",
   "runtime": "node",
   "entry": "index.cjs",
@@ -81,6 +81,13 @@
       "title": "辞書で置き換える",
       "type": "boolean",
       "default": true
+    },
+    {
+      "key": "dictionaryIgnoreCase",
+      "title": "英字の大文字・小文字を区別しない",
+      "type": "boolean",
+      "default": true,
+      "description": "半角英字（A–Z／a–z）の違いを無視して照合します。元の文章やCSVの表記は保持します。"
     }
   ],
   "settingSections": [
@@ -101,8 +108,8 @@
     },
     {
       "id": "dictionary",
-      "title": "自動置き換え",
-      "settings": ["dictionaryEnabled"]
+      "title": "辞書変換",
+      "settings": ["dictionaryEnabled", "dictionaryIgnoreCase"]
     }
   ],
   "settingsTabs": [
@@ -392,7 +399,8 @@
         "startMode",
         "startCount",
         "startSeconds",
-        "dictionaryEnabled"
+        "dictionaryEnabled",
+        "dictionaryIgnoreCase"
       ],
       "tools": [
         {

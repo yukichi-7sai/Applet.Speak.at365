@@ -57,7 +57,7 @@ const readUser = () => fs.readFileSync(path.join(shared, "user.csv"), "utf8");
 const userCsv =
   "\ufeff個人優先,個人\r\n共通,個人共通\r\n" +
   Array.from({ length: 248 }, (_, i) => `ユーザー${i},読み${i}`).join("\r\n") +
-  "\r\n共通,後の重複";
+  "\r\n共通,後の重複\r\nhello,ハロー\r\npython,パイソン\r\njavascript,ジャヴァスクリプト\r\nenglish,イングリッシュ\r\nkey,キー\r\nboard,ボード";
 const sourceCsv = (tag) =>
   `共通,${tag}\n個人優先,配布\n` +
   Array.from({ length: 50000 }, (_, i) => `固有${tag}${i},読み${tag}${i}`).join(
@@ -170,6 +170,15 @@ async function useShared() {
 (async () => {
   try {
     await open();
+    await page
+      .getByRole("heading", { name: "辞書変換", exact: true })
+      .waitFor();
+    const caseChoice = () =>
+      page.getByRole("switch", {
+        name: "英字の大文字・小文字を区別しない",
+        exact: true,
+      });
+    assert.equal(await caseChoice().isChecked(), true);
     await importFile(userInput);
     assert.equal(readUser(), userCsv);
     const words = () =>
@@ -195,7 +204,25 @@ async function useShared() {
       undefined,
     );
     checks.push(
-      "UTF-8 BOM/CRLF user CSV imports and exports unchanged; 250 words page without entering Settings JSON",
+      "UTF-8 BOM/CRLF user CSV imports and exports unchanged; 256 words page without entering Settings JSON",
+    );
+
+    const caseInput =
+      "Hello PYTHON JavaScript English keyboard key board MyPython";
+    const converted =
+      "ハロー パイソン ジャヴァスクリプト イングリッシュ keyboard キー ボード MyPython";
+    const sensitive =
+      "Hello PYTHON JavaScript English keyboard キー ボード MyPython";
+    await preview(caseInput, converted);
+    await caseChoice().click();
+    await settleSettings(page);
+    await preview(caseInput, sensitive);
+    await caseChoice().click();
+    await settleSettings(page);
+    await preview(caseInput, converted);
+    assert.equal(readUser(), userCsv);
+    checks.push(
+      "dictionary conversion defaults to case-insensitive ASCII matching, switches immediately and preserves whole-word boundaries and CSV bytes",
     );
 
     await importFile(sourceA, "辞書A");
@@ -340,11 +367,18 @@ async function useShared() {
     await useShared();
     await preview("共通 個人優先", "改A 個人");
     assert.equal(readUser(), good);
+    await caseChoice().click();
+    await settleSettings(page);
     await host.close();
     await open();
+    assert.equal(await caseChoice().isChecked(), false);
+    await preview(caseInput, sensitive);
+    await caseChoice().click();
+    await settleSettings(page);
+    await preview(caseInput, converted);
     await preview("共通 個人優先 別語", "改A 個人 べつ");
     checks.push(
-      "same-value shared/device switching changes the resident dictionary, preserves both namespaces, and survives host restart",
+      "shared/device dictionaries and the case-sensitive choice persist across host restart; switching back restores folded matching",
     );
 
     await tab("source-dictionaries");
