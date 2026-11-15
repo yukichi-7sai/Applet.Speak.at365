@@ -4,9 +4,9 @@
   "name": "Applet.Speak.at365",
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
-  "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割や個人辞書で、読み上げを好みに合わせられます。",
-  "version": "0.2.0",
-  "minimumHostVersion": "0.246.0",
+  "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
+  "version": "0.3.0",
+  "minimumHostVersion": "0.247.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -65,13 +65,13 @@
     },
     {
       "key": "dictionaryEnabled",
-      "title": "個人辞書で置き換える",
+      "title": "ユーザー辞書で置き換える",
       "type": "boolean",
       "default": true
     },
     {
       "key": "dictionary",
-      "title": "個人辞書",
+      "title": "ユーザー辞書",
       "type": "object-list",
       "default": [],
       "itemTitle": "単語",
@@ -122,7 +122,26 @@
     {
       "id": "dictionary",
       "title": "自動置き換え",
-      "settings": ["dictionaryEnabled", "dictionary"]
+      "settings": ["dictionaryEnabled"]
+    },
+    {
+      "id": "user-dictionary",
+      "title": "ユーザー辞書",
+      "settings": ["dictionary"]
+    }
+  ],
+  "settingsTabs": [
+    {
+      "id": "settings",
+      "title": "設定",
+      "sections": ["publication", "splitting", "playback", "dictionary"],
+      "provider": "helpers/settings"
+    },
+    {
+      "id": "user-dictionary",
+      "title": "ユーザー辞書",
+      "sections": ["user-dictionary"],
+      "provider": "helpers/user-dictionary"
     }
   ],
   "settingsProviders": [
@@ -131,7 +150,10 @@
       "key": "helpers",
       "title": "辞書と文章の補助操作",
       "scope": "device",
-      "tabs": [{ "id": "tools", "title": "補助操作" }],
+      "tabs": [
+        { "id": "settings", "title": "設定" },
+        { "id": "user-dictionary", "title": "ユーザー辞書" }
+      ],
       "actions": [
         {
           "id": "csv.open",
@@ -189,7 +211,7 @@
     {
       "id": "at365.speak.read-aloud",
       "title": "読み上げツール",
-      "description": "Speakの個人辞書・文章分割・再生開始設定を使って読み上げます。",
+      "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",
       "settingsKeys": [
         "splitEnabled",

@@ -96,20 +96,22 @@ function createExtension() {
               available: true,
               tabs: [
                 {
-                  id: "tools",
-                  panels: [
+                  id: "settings",
+                  panels: [],
+                  toolbar: [{ id: "text.open", title: "文章プレビュー" }],
+                },
+                {
+                  id: "user-dictionary",
+                  panels: [],
+                  toolbar: [
                     {
-                      id: "helpers",
-                      title: "辞書と文章の補助操作",
-                      description:
-                        "CSVの取り込みはプレビュー後に辞書全体を置き換えます。文章プレビューは音声を生成しません。",
-                      actions: [
+                      title: "取り込み",
+                      items: [
                         { id: "csv.open", title: "CSVファイルを取り込む" },
                         { id: "csv.paste", title: "CSVを貼り付けて取り込む" },
-                        { id: "csv.export", title: "辞書をCSVへ書き出す" },
-                        { id: "text.open", title: "文章プレビュー" },
                       ],
                     },
+                    { id: "csv.export", title: "書き出し" },
                   ],
                 },
               ],
@@ -121,7 +123,7 @@ function createExtension() {
           case "csv.paste":
             return dialog(
               "CSVを貼り付けて取り込む",
-              [field("csv", "個人辞書CSV")],
+              [field("csv", "ユーザー辞書CSV")],
               { csv: "" },
               {
                 id: "csv.preview",
@@ -175,10 +177,14 @@ function createExtension() {
           case "text.preview": {
             const plan = processText(values.text, config, revision(config));
             const p = plan.startPolicy;
-            const start = p.mode === "first" ? "最初の1個ができたら再生します。" :
-              p.mode === "all" ? "全部の音声ができたら再生します。" :
-              p.mode === "count" ? `先頭から${Math.min(p.count, plan.segments.length)}個の音声ができたら再生します。` :
-              `最初の音声ができてから${p.seconds}秒待って再生します。待機中も続きの音声を生成します。`;
+            const start =
+              p.mode === "first"
+                ? "最初の1個ができたら再生します。"
+                : p.mode === "all"
+                  ? "全部の音声ができたら再生します。"
+                  : p.mode === "count"
+                    ? `先頭から${Math.min(p.count, plan.segments.length)}個の音声ができたら再生します。`
+                    : `最初の音声ができてから${p.seconds}秒待って再生します。待機中も続きの音声を生成します。`;
             return dialog(
               "文章プレビュー",
               [

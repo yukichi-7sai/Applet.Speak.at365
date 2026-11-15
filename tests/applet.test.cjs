@@ -134,6 +134,24 @@ test("preview has no save, network, generation or playback and import is preview
   const f = fixture();
   await f.start();
   const signal = new AbortController().signal;
+  const view = await f.extension.onProviderRequest(
+    f.request("snapshot", {}),
+    signal,
+  );
+  assert.deepEqual(
+    view.tabs.map((tab) => tab.id),
+    ["settings", "user-dictionary"],
+  );
+  assert.deepEqual(
+    view.tabs[0].toolbar.map((action) => action.id),
+    ["text.open"],
+  );
+  assert.deepEqual(
+    view.tabs[1].toolbar[0].items.map((action) => action.id),
+    ["csv.open", "csv.paste"],
+  );
+  assert.equal(view.tabs[1].toolbar[1].id, "csv.export");
+  assert(view.tabs.every((tab) => tab.panels.length === 0));
   const preview = await f.extension.onProviderRequest(
     f.request("text.preview", { text: "プレビューです。" }),
     signal,

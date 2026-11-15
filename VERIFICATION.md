@@ -1,5 +1,13 @@
 # 検証記録
 
+## 2026-11-15 設定・ユーザー辞書タブ
+
+- 0.3.0、minimumHostVersion 0.247.0。本体の宣言型`settingsTabs`で「設定」「ユーザー辞書」を分け、辞書のON/OFFは設定、通常の`dictionary`一覧はユーザー辞書へ置いた。表示名を「ユーザー辞書」へ揃え、保存キー・CSV形式・公開MCPの4入力とaccepted応答を保持した。
+- CSVファイル/貼り付けの取り込みメニューと書き出しはユーザー辞書タブの隣、文章プレビューは設定タブの隣へ移した。将来の配布辞書タブを同じ宣言へ追加できる。配布辞書取り込み自体は実装していない。
+- `publish.bat`内の単体9件が成功。通常のローカル発行先に生成し、manifest/feedの版・最低ホスト版・ZIPの容量/SHA-256と全3項目をrepo原本・展開済み発行物へ照合した。ZIP SHA-256=`f127d89c12f2f2e98f92ad1bab018e757e02f0c9080ad781675c7512781984ca`。
+- 固定AppDock 0.247.0・発行済みSpeak・隔離Relay 0.3.0による本体結合11群が成功。辞書の編集/取消/取り込み、タブ補助操作のキーボード移動、検索からのタブ選択、情報パネルのJSON表示、タブリセットによる辞書と公開ONの保護、読み上げ受付・分割と順序・再起動を検証した。物理出力と実サーバーの音声品質はfixture試験に含めない。
+- 本体の関連単体97件、情報パネル13群、About 5群、共通ボタン3群も成功。詳細ログ/profile/hashは本体`.artifacts/applet-settings-tabs-20261115/`、入力とcommit照合は本repo`.artifacts/commit-validation-settings-tabs-20261115/`。発行ログは`.artifacts/publish-settings-tabs-20261115.log`。専用fixtureバイナリーを回収し、共通ランタイムと検証証跡を保持。push・公開・実利用先配置は行っていない。
+
 ## 2026-11-15 Speakへの識別名統一
 
 - Git履歴とmainを保持してrepoフォルダーを`Applet.Speech.at365`から`Applet.Speak.at365`へ移動。正式名を`Applet.Speak.at365`、Applet IDを`at365.speak`、モジュールIDを`at365.speak.read-aloud`へ統一し、通常の発行先も`Applet.Speak.at365/extensions/at365.speak`へ揃えた。旧repo/発行先フォルダーが残らないことを確認した。
