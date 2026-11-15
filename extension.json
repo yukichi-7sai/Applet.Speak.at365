@@ -1,0 +1,247 @@
+{
+  "apiVersion": 1,
+  "id": "at365.speech",
+  "name": "読み上げApplet",
+  "description": "個人辞書と文章分割を使って、指定した音声サーバーで読み上げます。",
+  "version": "0.1.0",
+  "minimumHostVersion": "0.246.0",
+  "runtime": "node",
+  "entry": "index.cjs",
+  "capabilities": [
+    "settings",
+    "providers",
+    "file-dialog",
+    "appdock-api",
+    "mcp-tool-modules"
+  ],
+  "settings": [
+    {
+      "key": "splitEnabled",
+      "title": "文章を自動分割する",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "targetCharacters",
+      "title": "分割の目安文字数",
+      "type": "number",
+      "minimum": 1,
+      "integer": true,
+      "step": 1,
+      "default": 300,
+      "description": "段落や文末に合わせて区切るため、目安を超える場合があります。"
+    },
+    {
+      "key": "startMode",
+      "title": "再生開始方式",
+      "type": "select",
+      "default": "first",
+      "options": [
+        { "label": "最初の1個ができたら", "value": "first" },
+        { "label": "指定個数ができたら", "value": "count" },
+        { "label": "全部できたら", "value": "all" },
+        { "label": "最初の生成後に指定秒数待つ", "value": "delay" }
+      ]
+    },
+    {
+      "key": "startCount",
+      "title": "開始までに生成する個数",
+      "type": "number",
+      "minimum": 1,
+      "integer": true,
+      "step": 1,
+      "default": 2,
+      "description": "「指定個数ができたら」で使用します。部分の総数が少ない場合は全部そろうと開始します。"
+    },
+    {
+      "key": "startSeconds",
+      "title": "最初の生成後に待つ秒数",
+      "type": "number",
+      "minimum": 0,
+      "default": 0,
+      "description": "秒数方式で使用します。小数を指定できます。0秒は最初の1個ができたら開始します。"
+    },
+    {
+      "key": "dictionaryEnabled",
+      "title": "個人辞書で置き換える",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "dictionary",
+      "title": "個人辞書",
+      "type": "object-list",
+      "default": [],
+      "itemTitle": "単語",
+      "fields": [
+        { "key": "id", "title": "ID", "type": "string" },
+        {
+          "key": "source",
+          "title": "置換元",
+          "type": "string",
+          "required": true,
+          "minLength": 1
+        },
+        {
+          "key": "replacement",
+          "title": "置換先",
+          "type": "string",
+          "required": true,
+          "minLength": 1
+        }
+      ],
+      "list": {
+        "columns": ["source", "replacement"],
+        "titleKey": "source",
+        "descriptionKey": "replacement",
+        "idKey": "id",
+        "uniqueKeys": ["source"],
+        "confirmDelete": true,
+        "showIndex": true
+      }
+    }
+  ],
+  "settingSections": [
+    {
+      "id": "publication",
+      "title": "MCP公開",
+      "mcpModules": ["at365.speech.read-aloud"]
+    },
+    {
+      "id": "splitting",
+      "title": "自動分割",
+      "settings": ["splitEnabled", "targetCharacters"]
+    },
+    {
+      "id": "playback",
+      "title": "再生開始",
+      "settings": ["startMode", "startCount", "startSeconds"]
+    },
+    {
+      "id": "dictionary",
+      "title": "自動置き換え",
+      "settings": ["dictionaryEnabled", "dictionary"]
+    }
+  ],
+  "settingsProviders": [
+    {
+      "id": "helpers",
+      "key": "helpers",
+      "title": "辞書と文章の補助操作",
+      "scope": "device",
+      "tabs": [{ "id": "tools", "title": "補助操作" }],
+      "actions": [
+        {
+          "id": "csv.open",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "csv.paste",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "csv.preview",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "csv.apply",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "csv.export",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "text.open",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        },
+        {
+          "id": "text.preview",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" }
+        }
+      ]
+    }
+  ],
+  "mcpToolModules": [
+    {
+      "id": "at365.speech.read-aloud",
+      "title": "読み上げツール",
+      "description": "読み上げAppletの個人辞書・文章分割・再生開始設定を使って読み上げます。",
+      "apiProfile": "speech",
+      "settingsKeys": [
+        "splitEnabled",
+        "targetCharacters",
+        "startMode",
+        "startCount",
+        "startSeconds",
+        "dictionaryEnabled",
+        "dictionary"
+      ],
+      "tools": [
+        {
+          "name": "appdock_speech_speak",
+          "title": "読み上げApplet: 文章を読み上げる",
+          "description": "文章を指定した接続で読み上げます。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。",
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "読み上げる文章。"
+              },
+              "connectionId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$",
+                "description": "音声サーバーのID。名前より優先します。"
+              },
+              "connectionName": {
+                "type": "string",
+                "description": "音声サーバーの名前。設定順の完全一致で選び、一致しなければ既定を使います。"
+              },
+              "instructions": {
+                "type": "string",
+                "description": "話し方や感情などのニュアンス。"
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": { "accepted": { "const": true } },
+            "required": ["accepted"],
+            "additionalProperties": false
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          }
+        }
+      ]
+    }
+  ]
+}
