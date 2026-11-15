@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.3.1",
-  "minimumHostVersion": "0.247.0",
+  "version": "0.4.0",
+  "minimumHostVersion": "0.249.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -14,7 +14,8 @@
     "providers",
     "file-dialog",
     "appdock-api",
-    "mcp-tool-modules"
+    "mcp-tool-modules",
+    "storage"
   ],
   "settings": [
     {
@@ -39,10 +40,22 @@
       "type": "select",
       "default": "first",
       "options": [
-        { "label": "最初の1個ができたら", "value": "first" },
-        { "label": "指定個数ができたら", "value": "count" },
-        { "label": "全部できたら", "value": "all" },
-        { "label": "最初の生成後に指定秒数待つ", "value": "delay" }
+        {
+          "label": "最初の1個ができたら",
+          "value": "first"
+        },
+        {
+          "label": "指定個数ができたら",
+          "value": "count"
+        },
+        {
+          "label": "全部できたら",
+          "value": "all"
+        },
+        {
+          "label": "最初の生成後に指定秒数待つ",
+          "value": "delay"
+        }
       ]
     },
     {
@@ -65,42 +78,9 @@
     },
     {
       "key": "dictionaryEnabled",
-      "title": "ユーザー辞書で置き換える",
+      "title": "辞書で置き換える",
       "type": "boolean",
       "default": true
-    },
-    {
-      "key": "dictionary",
-      "title": "ユーザー辞書",
-      "type": "object-list",
-      "default": [],
-      "itemTitle": "単語",
-      "fields": [
-        { "key": "id", "title": "ID", "type": "string" },
-        {
-          "key": "source",
-          "title": "置換元",
-          "type": "string",
-          "required": true,
-          "minLength": 1
-        },
-        {
-          "key": "replacement",
-          "title": "置換先",
-          "type": "string",
-          "required": true,
-          "minLength": 1
-        }
-      ],
-      "list": {
-        "columns": ["source", "replacement"],
-        "titleKey": "source",
-        "descriptionKey": "replacement",
-        "idKey": "id",
-        "uniqueKeys": ["source"],
-        "confirmDelete": true,
-        "showIndex": true
-      }
     }
   ],
   "settingSections": [
@@ -123,11 +103,6 @@
       "id": "dictionary",
       "title": "自動置き換え",
       "settings": ["dictionaryEnabled"]
-    },
-    {
-      "id": "user-dictionary",
-      "title": "ユーザー辞書",
-      "settings": ["dictionary"]
     }
   ],
   "settingsTabs": [
@@ -140,8 +115,14 @@
     {
       "id": "user-dictionary",
       "title": "ユーザー辞書",
-      "sections": ["user-dictionary"],
+      "sections": [],
       "provider": "helpers/user-dictionary"
+    },
+    {
+      "id": "source-dictionaries",
+      "title": "配布辞書",
+      "sections": [],
+      "provider": "helpers/source-dictionaries"
     }
   ],
   "settingsProviders": [
@@ -151,58 +132,250 @@
       "title": "辞書と文章の補助操作",
       "scope": "device",
       "tabs": [
-        { "id": "settings", "title": "設定" },
-        { "id": "user-dictionary", "title": "ユーザー辞書" }
+        {
+          "id": "settings",
+          "title": "設定"
+        },
+        {
+          "id": "user-dictionary",
+          "title": "ユーザー辞書"
+        },
+        {
+          "id": "source-dictionaries",
+          "title": "配布辞書"
+        }
       ],
       "actions": [
         {
           "id": "csv.open",
           "localOnly": true,
           "permission": "read",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "csv.paste",
           "localOnly": true,
           "permission": "read",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "csv.preview",
           "localOnly": true,
           "permission": "read",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "csv.apply",
           "localOnly": true,
           "permission": "write",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "csv.export",
           "localOnly": true,
           "permission": "write",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "text.open",
           "localOnly": true,
           "permission": "read",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         },
         {
           "id": "text.preview",
           "localOnly": true,
           "permission": "read",
-          "inputSchema": { "type": "object" },
-          "outputSchema": { "type": "object" }
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "dictionary.reload",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.previous",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.next",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.add",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.edit",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.save",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "user.delete",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.import",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.replace",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.edit",
+          "localOnly": true,
+          "permission": "read",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.save",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.toggle",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.delete",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
+        },
+        {
+          "id": "source.order",
+          "localOnly": true,
+          "permission": "write",
+          "inputSchema": {
+            "type": "object"
+          },
+          "outputSchema": {
+            "type": "object"
+          }
         }
       ]
     }
@@ -219,8 +392,7 @@
         "startMode",
         "startCount",
         "startSeconds",
-        "dictionaryEnabled",
-        "dictionary"
+        "dictionaryEnabled"
       ],
       "tools": [
         {
@@ -254,7 +426,11 @@
           },
           "outputSchema": {
             "type": "object",
-            "properties": { "accepted": { "const": true } },
+            "properties": {
+              "accepted": {
+                "const": true
+              }
+            },
             "required": ["accepted"],
             "additionalProperties": false
           },

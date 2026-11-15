@@ -2,25 +2,25 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createExtension } = require("../index.cjs");
 const manifest = require("../extension.json");
+const { filesFixture } = require("./fixtures/storage.cjs");
 function fixture() {
   const extension = createExtension(),
     calls = [],
-    saved = [];
+    storage = filesFixture();
   let value = {},
     revision = 1;
   const context = {
+    storage: { files: storage.files },
     settings: {
       get: (key, fallback) => value[key] ?? fallback,
-      replaceList: async (key, next, before) => {
-        if (JSON.stringify(value[key] ?? []) !== JSON.stringify(before))
-          throw Error("Conflict");
-        value[key] = next;
-        saved.push(next);
+      replaceList: async () => {
+        throw Error("CSV body must not enter Settings");
       },
     },
     providers: {
       settings: async () => ({ revision: String(revision), value: {} }),
       authorize: async () => ({ kind: "host" }),
+      changed: async () => {},
     },
     appdock: {
       call: async (...args) => {
@@ -30,18 +30,22 @@ function fixture() {
     },
     ui: {},
   };
-  const request = (method, values) => ({
+  const signal = new AbortController().signal;
+  const request = (method, values = {}, params = {}) => ({
     method,
-    params: { providerId: "helpers", values },
+    params: { providerId: "helpers", values, ...params },
     actor: { kind: "host", external: false },
     authorization: "host",
   });
+  const view = () => extension.onProviderRequest(request("snapshot"), signal);
   return {
     extension,
     calls,
-    saved,
+    storage,
     context,
+    signal,
     request,
+    view,
     set(v) {
       value = v;
       revision++;
@@ -49,10 +53,20 @@ function fixture() {
     async start() {
       await extension.activate(context);
     },
+    async invoke(method, values = {}, params = {}) {
+      return extension.onProviderRequest(
+        request(method, values, {
+          expectedRevision: (await view()).revision,
+          ...params,
+        }),
+        signal,
+      );
+    },
   };
 }
-test("one MCP tool accepts four public fields and sends only a prepared host sequence", async () => {
+test("one MCP tool accepts four public fields and uses the resident CSV dictionary", async () => {
   const f = fixture();
+  f.storage.data.set("shared/user.csv", "AppDock,アップドック");
   await f.start();
   const tool = manifest.mcpToolModules[0].tools;
   assert.equal(tool.length, 1);
@@ -63,43 +77,46 @@ test("one MCP tool accepts four public fields and sends only a prepared host seq
     "instructions",
     "text",
   ]);
+  assert(!manifest.settings.some((setting) => setting.key === "dictionary"));
+  assert(!manifest.mcpToolModules[0].settingsKeys.includes("dictionary"));
   const input = {
     text: "AppDockです。",
     connectionId: "id",
     connectionName: "name",
     instructions: "静かに",
   };
-  assert.deepEqual(
-    await f.extension.onMcpTool(
-      {
-        moduleId: "at365.speak.read-aloud",
-        name: tool[0].name,
-        input,
-        settings: {
-          revision: "snapshot",
-          value: {
-            splitEnabled: false,
-            dictionary: [
-              { id: "row", source: "AppDock", replacement: "アップドック" },
-            ],
+  const reads = f.storage.reads.length;
+  for (let i = 0; i < 10; i++)
+    assert.deepEqual(
+      await f.extension.onMcpTool(
+        {
+          moduleId: "at365.speak.read-aloud",
+          name: tool[0].name,
+          input,
+          settings: {
+            revision: String(i),
+            storageScope: "shared",
+            value: { splitEnabled: false },
           },
         },
-      },
-      new AbortController().signal,
-    ),
-    { accepted: true },
+        f.signal,
+      ),
+      { accepted: true },
+    );
+  assert.equal(
+    f.storage.reads.length,
+    reads,
+    "speech and unrelated settings revisions never read CSV",
   );
-  assert.deepEqual(f.calls, [
-    [
-      "tts.sequences.speak",
-      {
-        segments: ["アップドックです。"],
-        startPolicy: { mode: "first" },
-        connectionId: "id",
-        connectionName: "name",
-        instructions: "静かに",
-      },
-    ],
+  assert.deepEqual(f.calls[0], [
+    "tts.sequences.speak",
+    {
+      segments: ["アップドックです。"],
+      startPolicy: { mode: "first" },
+      connectionId: "id",
+      connectionName: "name",
+      instructions: "静かに",
+    },
   ]);
 });
 test("MCP receipt waits for host acceptance without waiting for generation", async () => {
@@ -117,30 +134,26 @@ test("MCP receipt waits for host acceptance without waiting for generation", asy
         moduleId: "at365.speak.read-aloud",
         name: "appdock_speech_speak",
         input: { text: "hello" },
-        settings: { revision: "a", value: {} },
+        settings: { revision: "a", storageScope: "shared", value: {} },
       },
-      new AbortController().signal,
+      f.signal,
     )
-    .then((r) => {
+    .then((result) => {
       returned = true;
-      return r;
+      return result;
     });
-  await new Promise((r) => setImmediate(r));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(returned, false);
   accept({ completion: "accepted" });
   assert.deepEqual(await pending, { accepted: true });
 });
-test("preview has no save, network, generation or playback and import is previewed then atomic", async () => {
+test("preview is read-only, CSV import is previewed, and stale/external requests cannot save", async () => {
   const f = fixture();
   await f.start();
-  const signal = new AbortController().signal;
-  const view = await f.extension.onProviderRequest(
-    f.request("snapshot", {}),
-    signal,
-  );
+  const view = await f.view();
   assert.deepEqual(
     view.tabs.map((tab) => tab.id),
-    ["settings", "user-dictionary"],
+    ["settings", "user-dictionary", "source-dictionaries"],
   );
   assert.deepEqual(
     view.tabs[0].toolbar.map((action) => action.id),
@@ -150,47 +163,124 @@ test("preview has no save, network, generation or playback and import is preview
     view.tabs[1].toolbar[0].items.map((action) => action.id),
     ["csv.open", "csv.paste"],
   );
-  assert.equal(view.tabs[1].toolbar[1].id, "csv.export");
-  assert(view.tabs.every((tab) => tab.panels.length === 0));
-  const preview = await f.extension.onProviderRequest(
-    f.request("text.preview", { text: "プレビューです。" }),
-    signal,
-  );
+  const preview = await f.invoke("text.preview", { text: "プレビューです。" });
   assert.equal(preview.dialog.values.replaced, "プレビューです。");
   assert.equal(f.calls.length, 0);
-  assert.equal(f.saved.length, 0);
-  const invalid = await f.extension.onProviderRequest(
-    f.request("csv.preview", { csv: "a,b,c", before: [] }),
-    signal,
+  assert.equal(f.storage.writes.length, 0);
+  assert.equal(
+    (await f.invoke("csv.preview", { csv: "a,b,c" })).issue.kind,
+    "validation",
   );
+  const imported = await f.invoke("csv.preview", {
+    csv: "AppDock,アップドック",
+  });
+  assert.equal(f.storage.writes.length, 0);
+  assert.ok((await f.invoke("csv.apply", imported.dialog.values)).feedback);
+  assert.equal(f.storage.data.get("shared/user.csv"), "AppDock,アップドック");
+  await assert.rejects(
+    f.invoke(
+      "csv.apply",
+      { csv: "MCP,エムシーピー", target: "user" },
+      { expectedRevision: view.revision },
+    ),
+    { code: "CONFLICT" },
+  );
+  assert.equal(f.storage.writes.length, 1);
+  await assert.rejects(
+    f.extension.onProviderRequest(
+      { ...f.request("csv.apply"), actor: { kind: "mcp", external: true } },
+      f.signal,
+    ),
+  );
+});
+test("word editing, distributed dictionary priority and toggles use the same CSV-backed data", async () => {
+  const f = fixture();
+  await f.start();
+  await f.invoke("csv.apply", {
+    csv: "用語,配布A",
+    target: "source",
+    name: "辞書A",
+  });
+  await f.invoke("csv.apply", {
+    csv: "用語,配布B",
+    target: "source",
+    name: "辞書B",
+  });
+  let sourceRows = (await f.view()).tabs[2].panels.find(
+    (panel) => panel.id === "source-dictionaries",
+  ).rows;
+  assert.equal(
+    (await f.invoke("text.preview", { text: "用語" })).dialog.values.replaced,
+    "配布A",
+  );
+  await f.invoke("source.order", {
+    ids: sourceRows.map((row) => row.id).reverse(),
+  });
+  assert.equal(
+    (await f.invoke("text.preview", { text: "用語" })).dialog.values.replaced,
+    "配布B",
+  );
+  await f.invoke("user.save", { source: "用語", replacement: "個人" });
+  assert.equal(
+    (await f.invoke("text.preview", { text: "用語" })).dialog.values.replaced,
+    "個人",
+  );
+  const row = (await f.view()).tabs[1].panels[1].rows[0];
+  const edit = await f.invoke("user.edit", row.values, { rowId: row.id });
+  assert.equal(edit.dialog.values.replacement, "個人");
+  await f.invoke("user.delete", row.values, { rowId: row.id });
+  sourceRows = (await f.view()).tabs[2].panels.find(
+    (panel) => panel.id === "source-dictionaries",
+  ).rows;
+  await f.invoke("source.toggle", sourceRows[0].values, {
+    rowId: sourceRows[0].id,
+  });
+  assert.equal(
+    (await f.invoke("text.preview", { text: "用語" })).dialog.values.replaced,
+    "配布A",
+  );
+  const invalid = await f.invoke("source.order", { ids: [] });
   assert.equal(invalid.issue.kind, "validation");
-  assert.equal(f.saved.length, 0);
-  const imported = await f.extension.onProviderRequest(
-    f.request("csv.preview", { csv: "AppDock,アップドック", before: [] }),
-    signal,
+  assert(f.storage.data.get("shared/catalog.json").includes("辞書A"));
+  assert(!f.storage.data.get("shared/catalog.json").includes("用語"));
+});
+test("old Settings dictionaries are ignored, large word views page, and PC switch changes the prepared dictionary", async () => {
+  const f = fixture();
+  f.set({
+    dictionary: [{ id: "old", source: "旧辞書", replacement: "移行しない" }],
+  });
+  f.storage.data.set(
+    "shared/user.csv",
+    Array.from({ length: 250 }, (_, i) => `Word${i},ワード${i}`).join("\n"),
   );
-  assert.equal(f.saved.length, 0);
-  const reply = await f.extension.onProviderRequest(
-    f.request("csv.apply", {
-      ...imported.dialog.values,
-      ...imported.dialog.submit.values,
-    }),
-    signal,
+  await f.start();
+  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 100);
+  await f.invoke("user.next");
+  assert.equal(
+    (await f.view()).tabs[1].panels[1].rows[0].values.source,
+    "Word100",
   );
-  assert.ok(reply.feedback);
-  assert.equal(f.saved.length, 1);
+  await f.storage.switchScope("device");
+  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 0);
+  await f.invoke("user.save", { source: "端末", replacement: "このPC" });
   await assert.rejects(
-    f.extension.onProviderRequest(
-      f.request("csv.apply", { csv: "MCP,エムシーピー", before: [] }),
-      signal,
+    f.extension.onMcpTool(
+      {
+        moduleId: "at365.speak.read-aloud",
+        name: "appdock_speech_speak",
+        input: { text: "Word0" },
+        settings: {
+          revision: "stale-scope",
+          storageScope: "shared",
+          value: {},
+        },
+      },
+      f.signal,
     ),
-    /Conflict/,
   );
-  assert.equal(f.saved.length, 1);
-  await assert.rejects(
-    f.extension.onProviderRequest(
-      { ...f.request("csv.apply", {}), actor: { kind: "mcp", external: true } },
-      signal,
-    ),
-  );
+  assert.equal(f.calls.length, 0);
+  await f.storage.switchScope("shared");
+  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 100);
+  assert(!f.storage.data.get("shared/user.csv").includes("旧辞書"));
+  assert.equal(f.storage.data.get("device/user.csv"), "端末,このPC");
 });

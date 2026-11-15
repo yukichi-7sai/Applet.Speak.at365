@@ -209,13 +209,11 @@ function settings(value = {}) {
     splitEnabled: true,
     targetCharacters: 300,
     dictionaryEnabled: true,
-    dictionary: [],
     startMode: "first",
     startCount: 2,
     startSeconds: 0,
     ...value,
   };
-  validateDictionary(result.dictionary);
   if (
     !Number.isSafeInteger(result.targetCharacters) ||
     result.targetCharacters < 1 ||
@@ -232,17 +230,17 @@ function settings(value = {}) {
   return result;
 }
 function createProcessor() {
-  let cachedRevision, root, config;
-  return (text, value, revision) => {
+  let cachedRevision, config;
+  const emptyIndex = dictionaryIndex([]);
+  return (text, value, revision, preparedIndex) => {
     if (typeof text !== "string" || !text.trim())
       throw new InputError("読み上げる文章を入力してください。");
-    if (cachedRevision !== revision || !root) {
+    if (cachedRevision !== revision || !config) {
       config = settings(value);
-      root = dictionaryIndex(config.dictionary);
       cachedRevision = revision;
     }
     const replaced = config.dictionaryEnabled
-      ? replaceText(text, root)
+      ? replaceText(text, preparedIndex ?? emptyIndex)
       : { text, ranges: [] };
     const segments = config.splitEnabled
       ? splitText(replaced.text, config.targetCharacters, replaced.ranges)

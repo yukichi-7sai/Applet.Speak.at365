@@ -1,54 +1,218 @@
 const fs = require("node:fs/promises");
-const { createHash } = require("node:crypto");
+const path = require("node:path");
+const { randomUUID } = require("node:crypto");
 const {
   InputError,
-  validateDictionary,
   parseCsv,
   exportCsv,
   createProcessor,
+  dictionaryIndex,
 } = require("./src/processing.cjs");
+const { DictionaryStore } = require("./src/dictionary-store.cjs");
 const manifest = require("./extension.json");
+const PAGE_SIZE = 100;
+const emptyIndex = dictionaryIndex([]);
+const field = (key, title, readOnly = false) => ({
+  key,
+  title,
+  type: "string",
+  presentation: "multiline",
+  readOnly,
+});
+const dialog = (title, fields, values, submit, revision) => ({
+  dialog: { title, fields, values, submit, revision },
+});
 function createExtension() {
-  let context;
+  let context,
+    dictionaries,
+    userPage = 0;
   const processText = createProcessor();
   const current = () =>
     Object.fromEntries(
-      manifest.settings.map((field) => [
-        field.key,
-        context.settings.get(field.key, field.default),
+      manifest.settings.map((setting) => [
+        setting.key,
+        context.settings.get(setting.key, setting.default),
       ]),
     );
-  const revision = (value) =>
-    createHash("sha256").update(JSON.stringify(value)).digest("hex");
-  const field = (key, title, readOnly = false) => ({
-    key,
-    title,
-    type: "string",
-    presentation: "multiline",
-    readOnly,
-    ...(!readOnly ? { initialFocus: true } : {}),
-  });
-  const dialog = (title, fields, values, submit, rev) => ({
-    dialog: { title, fields, values, submit, revision: rev },
-  });
-  const csvPreview = (csv, before, rev) => {
+  const sourceRow = (state, id) => {
+    const row = state.entries.find((entry) => entry.id === id);
+    if (!row)
+      throw new InputError("辞書が見つかりません。表示を更新してください。");
+    return row;
+  };
+  const importPreview = (csv, target, state, name = "", id) => {
     const rows = parseCsv(csv);
     return dialog(
       `辞書の取り込み: ${rows.length}件`,
-      [field("csv", "取り込むCSV", true)],
-      { csv },
+      [
+        ...(target === "source"
+          ? [
+              {
+                key: "name",
+                title: "辞書名",
+                type: "string",
+                required: true,
+                initialFocus: true,
+              },
+            ]
+          : []),
+        field("preview", "取り込み内容", true),
+      ],
+      {
+        csv,
+        target,
+        name,
+        id,
+        preview:
+          rows
+            .slice(0, 20)
+            .map((row) => `${row.source} → ${row.replacement}`)
+            .join("\n") + (rows.length > 20 ? `\n… 全${rows.length}件` : ""),
+      },
       {
         id: "csv.apply",
-        title: "辞書全体を置き換える",
-        values: { before },
+        title:
+          target === "user" ? "ユーザー辞書を置き換える" : "辞書を取り込む",
         primary: true,
       },
-      rev,
+      state.revision,
     );
+  };
+  const userDialog = (state, row) =>
+    dialog(
+      row ? "単語を編集" : "単語を追加",
+      [
+        { ...field("source", "置換元"), required: true, initialFocus: true },
+        { ...field("replacement", "置換先"), required: true },
+      ],
+      {
+        id: row?.id,
+        source: row?.source ?? "",
+        replacement: row?.replacement ?? "",
+      },
+      { id: "user.save", title: "OK", primary: true },
+      state.revision,
+    );
+  const userPanels = (state) => {
+    userPage = Math.min(
+      userPage,
+      Math.max(0, Math.ceil(state.userRows.length / PAGE_SIZE) - 1),
+    );
+    const offset = userPage * PAGE_SIZE;
+    return [
+      {
+        id: "user-page",
+        title: "表示範囲",
+        description: `全${state.userRows.length}件・${userPage + 1}/${Math.max(1, Math.ceil(state.userRows.length / PAGE_SIZE))}ページ。共有とこのPC専用の辞書は別々に保存します。`,
+        actions: [
+          {
+            id: "user.previous",
+            title: "前のページ",
+            disabled: userPage === 0,
+          },
+          {
+            id: "user.next",
+            title: "次のページ",
+            disabled: offset + PAGE_SIZE >= state.userRows.length,
+          },
+        ],
+      },
+      {
+        id: "user-words",
+        title: "ユーザー辞書",
+        columns: [
+          { key: "source", title: "置換元" },
+          { key: "replacement", title: "置換先" },
+        ],
+        list: { titleKey: "source" },
+        actions: [{ id: "user.add", title: "単語を追加", role: "add" }],
+        rows: state.userRows.slice(offset, offset + PAGE_SIZE).map((row) => ({
+          id: row.id,
+          values: { ...row },
+          actions: [
+            {
+              id: "user.edit",
+              title: "単語を編集",
+              role: "edit",
+              rowId: row.id,
+            },
+            {
+              id: "user.delete",
+              title: "単語を削除",
+              role: "delete",
+              rowId: row.id,
+              confirm: `「${row.source}」をユーザー辞書CSVから削除しますか？`,
+            },
+          ],
+        })),
+      },
+    ];
+  };
+  const sourcePanels = (state) => [
+    {
+      id: "source-priority",
+      title: "辞書の優先順",
+      description:
+        "同じ置換元はユーザー辞書を最優先し、配布辞書は一覧の上から優先します。共有とこのPC専用の辞書は別々に保存します。",
+    },
+    {
+      id: "source-dictionaries",
+      title: "配布辞書",
+      columns: [
+        { key: "name", title: "辞書名" },
+        { key: "count", title: "件数" },
+        { key: "priority", title: "優先順" },
+      ],
+      list: { titleKey: "name", enabledKey: "enabled" },
+      actions: [
+        { id: "source.import", title: "CSVを取り込む", role: "add" },
+        { id: "source.order", title: "優先順を変更", role: "order" },
+      ],
+      rows: state.entries.map((row, i) => ({
+        id: row.id,
+        values: {
+          id: row.id,
+          name: row.name,
+          count: String(row.count),
+          priority: String(i + 1),
+          enabled: row.enabled,
+        },
+        actions: [
+          {
+            id: "source.edit",
+            title: "辞書名を編集",
+            role: "edit",
+            rowId: row.id,
+          },
+          {
+            id: "source.toggle",
+            title: "有効状態を切り替える",
+            role: "toggle",
+            rowId: row.id,
+          },
+          {
+            id: "source.delete",
+            title: "辞書を削除",
+            role: "delete",
+            rowId: row.id,
+            confirm: `「${row.name}」（${row.count}件）の登録とAppDock内のCSVコピーを削除しますか？ 元の指定ファイルは残ります。`,
+          },
+          { id: "source.replace", title: "再インポート", rowId: row.id },
+        ],
+      })),
+    },
+  ];
+  const reload = async () => {
+    await dictionaries.reload();
+    userPage = 0;
+    await context.providers.changed();
   };
   return {
     async activate(value) {
       context = value;
+      dictionaries = new DictionaryStore(context.storage.files);
+      context.storage.files.onScopeChanged(reload);
+      await dictionaries.reload();
     },
     async onMcpTool(request, signal) {
       if (
@@ -56,14 +220,20 @@ function createExtension() {
         request.name !== "appdock_speech_speak"
       )
         throw new InputError("読み上げツールが見つかりません。");
-      const { text, connectionId, connectionName, instructions } =
-        request.input;
+      await dictionaries.ready();
+      const config = request.settings.value;
+      const index =
+        config.dictionaryEnabled === false
+          ? emptyIndex
+          : dictionaries.current(request.settings.storageScope).index;
       const plan = processText(
-        text,
-        request.settings.value,
+        request.input.text,
+        config,
         request.settings.revision,
+        index,
       );
       signal.throwIfAborted();
+      const { connectionId, connectionName, instructions } = request.input;
       await context.appdock.call("tts.sequences.speak", {
         segments: plan.segments,
         startPolicy: plan.startPolicy,
@@ -80,103 +250,268 @@ function createExtension() {
         request.params.providerId !== "helpers"
       )
         throw new InputError("この操作は設定画面から使用してください。");
-      const snapshot = await context.providers.settings("helpers");
-      const rev = snapshot.revision,
-        values = request.params.values ?? {};
-      const config = current();
+      await dictionaries.ready();
+      const values = request.params.values ?? {},
+        state = dictionaries.snapshot,
+        rev = state?.revision ?? "unavailable";
       const authorize = async () => {
         signal.throwIfAborted();
         await context.providers.authorize(request.authorization);
       };
+      const expected = request.params.expectedRevision;
+      const assertRevision = () => {
+        if (expected !== rev)
+          throw Object.assign(
+            new Error("辞書が変更されています。表示を更新してください。"),
+            { code: "CONFLICT" },
+          );
+      };
       try {
         switch (request.method) {
-          case "snapshot":
+          case "snapshot": {
+            const warning = dictionaries.error
+              ? [
+                  {
+                    id: "dictionary-error",
+                    title: "辞書の読み込み",
+                    description: `${dictionaries.error.message} 保存先のCSVとcatalog.jsonを確認し、再読み込みしてください。直前の正常な辞書があれば保持しています。`,
+                    actions: [{ id: "dictionary.reload", title: "再読み込み" }],
+                  },
+                ]
+              : [];
             return {
               revision: rev,
               available: true,
               tabs: [
                 {
                   id: "settings",
-                  panels: [],
+                  panels: warning,
                   toolbar: [{ id: "text.open", title: "文章プレビュー" }],
                 },
                 {
                   id: "user-dictionary",
-                  panels: [],
-                  toolbar: [
-                    {
-                      title: "取り込み",
-                      items: [
-                        { id: "csv.open", title: "CSVファイルを取り込む" },
-                        { id: "csv.paste", title: "CSVを貼り付けて取り込む" },
-                      ],
-                    },
-                    { id: "csv.export", title: "書き出し" },
-                  ],
+                  panels: [...warning, ...(state ? userPanels(state) : [])],
+                  toolbar: state
+                    ? [
+                        {
+                          title: "取り込み",
+                          items: [
+                            { id: "csv.open", title: "CSVファイルを取り込む" },
+                            {
+                              id: "csv.paste",
+                              title: "CSVを貼り付けて取り込む",
+                            },
+                          ],
+                        },
+                        { id: "csv.export", title: "書き出し" },
+                        { id: "dictionary.reload", title: "再読み込み" },
+                      ]
+                    : [],
+                },
+                {
+                  id: "source-dictionaries",
+                  panels: [...warning, ...(state ? sourcePanels(state) : [])],
+                  toolbar: [{ id: "dictionary.reload", title: "再読み込み" }],
                 },
               ],
             };
+          }
           case "prepare":
             if (Object.keys(request.params.value ?? {}).length)
-              throw new InputError("補助操作の入力は保存しません。");
+              throw new InputError("辞書本文はCSVで保存します。");
             return { plan: { value: {} } };
+          case "dictionary.reload":
+            await authorize();
+            await reload();
+            return {};
+        }
+        if (!state)
+          throw new InputError(
+            "辞書の保存ファイルを確認して再読み込みしてください。",
+          );
+        const rowId = request.params.rowId ?? values.id;
+        switch (request.method) {
+          case "user.previous":
+            userPage = Math.max(0, userPage - 1);
+            return {};
+          case "user.next":
+            userPage++;
+            return {};
+          case "user.add":
+            return userDialog(state);
+          case "user.edit": {
+            const row = state.userRows.find((row) => row.id === rowId);
+            if (!row) throw new InputError("単語が見つかりません。");
+            return userDialog(state, row);
+          }
+          case "user.save": {
+            assertRevision();
+            const rows = state.userRows.map((row) => ({ ...row })),
+              index = values.id
+                ? rows.findIndex((row) => row.id === values.id)
+                : -1;
+            if (values.id && index < 0)
+              throw new InputError("単語が見つかりません。");
+            const row = {
+              id: values.id ?? randomUUID(),
+              source: values.source,
+              replacement: values.replacement,
+            };
+            if (index < 0) rows.push(row);
+            else rows[index] = row;
+            await dictionaries.replaceUser(
+              exportCsv(rows),
+              expected,
+              authorize,
+            );
+            return {};
+          }
+          case "user.delete":
+            assertRevision();
+            if (!state.userRows.some((row) => row.id === rowId))
+              throw new InputError("単語が見つかりません。");
+            await dictionaries.replaceUser(
+              exportCsv(state.userRows.filter((row) => row.id !== rowId)),
+              expected,
+              authorize,
+            );
+            return {};
           case "csv.paste":
             return dialog(
               "CSVを貼り付けて取り込む",
-              [field("csv", "ユーザー辞書CSV")],
+              [{ ...field("csv", "ユーザー辞書CSV"), initialFocus: true }],
               { csv: "" },
-              {
-                id: "csv.preview",
-                title: "取り込みをプレビュー",
-                values: { before: config.dictionary },
-              },
+              { id: "csv.preview", title: "取り込みをプレビュー" },
               rev,
             );
-          case "csv.open": {
+          case "csv.open":
+          case "source.import":
+          case "source.replace": {
+            const source =
+              request.method === "source.replace"
+                ? sourceRow(state, rowId)
+                : undefined;
             const file = await context.ui.pickFile("csv");
             if (!file) return {};
-            const csv = new TextDecoder("utf-8", { fatal: true }).decode(
-              await fs.readFile(file),
-            );
+            const csv = new TextDecoder("utf-8", {
+              fatal: true,
+              ignoreBOM: true,
+            }).decode(await fs.readFile(file));
             await authorize();
-            return csvPreview(csv, config.dictionary, rev);
+            return importPreview(
+              csv,
+              request.method === "csv.open" ? "user" : "source",
+              state,
+              source?.name ?? path.basename(file, path.extname(file)),
+              source?.id,
+            );
           }
           case "csv.preview":
-            return csvPreview(
-              values.csv,
-              values.before ?? config.dictionary,
-              rev,
-            );
+            return importPreview(values.csv, "user", state);
           case "csv.apply": {
-            const rows = parseCsv(values.csv);
-            validateDictionary(values.before);
-            await authorize();
-            await context.settings.replaceList(
-              "dictionary",
-              rows,
-              values.before,
+            assertRevision();
+            if (values.target === "user") {
+              await dictionaries.replaceUser(values.csv, expected, authorize);
+              userPage = 0;
+              return {
+                feedback: `${parseCsv(values.csv).length}件のユーザー辞書をCSVに保存しました。`,
+              };
+            }
+            if (values.target !== "source")
+              throw new InputError("取り込み先が不正です。");
+            const warning = await dictionaries.importSource(
+              values.csv,
+              values.name,
+              values.id,
+              expected,
+              authorize,
             );
-            return { feedback: `${rows.length}件の辞書を保存しました。` };
+            return {
+              feedback: "辞書を取り込みました。",
+              value: { saved: true },
+              ...(warning ? { warning } : {}),
+            };
           }
           case "csv.export": {
-            const csv = exportCsv(config.dictionary),
-              file = await context.ui.pickSaveFile("csv");
+            const file = await context.ui.pickSaveFile("csv");
             if (!file) return {};
             await authorize();
-            await fs.writeFile(file, csv, "utf8");
+            await fs.writeFile(file, state.userFile.text ?? "", "utf8");
             return { feedback: "辞書をCSVへ書き出しました。" };
+          }
+          case "source.edit": {
+            const row = sourceRow(state, rowId);
+            return dialog(
+              "辞書名を編集",
+              [
+                {
+                  key: "name",
+                  title: "辞書名",
+                  type: "string",
+                  required: true,
+                  initialFocus: true,
+                },
+              ],
+              { id: row.id, name: row.name },
+              { id: "source.save", title: "OK", primary: true },
+              rev,
+            );
+          }
+          case "source.save":
+          case "source.toggle":
+          case "source.delete":
+          case "source.order": {
+            assertRevision();
+            const method = request.method;
+            const warning = await dictionaries.updateSources(
+              (entries) => {
+                if (method === "source.order") {
+                  if (
+                    !Array.isArray(values.ids) ||
+                    values.ids.length !== entries.length ||
+                    new Set(values.ids).size !== entries.length ||
+                    values.ids.some(
+                      (id) => !entries.some((entry) => entry.id === id),
+                    )
+                  )
+                    throw new InputError("辞書の優先順が変更されています。");
+                  return values.ids.map((id) =>
+                    entries.find((entry) => entry.id === id),
+                  );
+                }
+                const row = sourceRow({ entries }, rowId);
+                if (method === "source.delete")
+                  return entries.filter((entry) => entry.id !== row.id);
+                if (method === "source.toggle") row.enabled = !row.enabled;
+                else {
+                  if (typeof values.name !== "string" || !values.name.trim())
+                    throw new InputError("辞書名を入力してください。");
+                  row.name = values.name;
+                }
+                return entries;
+              },
+              expected,
+              authorize,
+            );
+            return warning ? { value: { saved: true }, warning } : {};
           }
           case "text.open":
             return dialog(
               "文章プレビュー",
-              [field("text", "読み上げる文章")],
+              [{ ...field("text", "読み上げる文章"), initialFocus: true }],
               { text: "" },
               { id: "text.preview", title: "プレビューする" },
               rev,
             );
           case "text.preview": {
-            const plan = processText(values.text, config, revision(config));
-            const p = plan.startPolicy;
+            const config = current(),
+              plan = processText(
+                values.text,
+                config,
+                JSON.stringify(config),
+                state.index,
+              ),
+              p = plan.startPolicy;
             const start =
               p.mode === "first"
                 ? "最初の1個ができたら再生します。"
@@ -209,13 +544,22 @@ function createExtension() {
             throw new InputError("操作が見つかりません。");
         }
       } catch (error) {
+        if (error.code === "CONFLICT") {
+          await reload();
+          throw error;
+        }
         if (error instanceof InputError)
           return { issue: { kind: "validation", message: error.message } };
-        if (error instanceof TypeError && request.method === "csv.open")
+        if (
+          error instanceof TypeError &&
+          ["csv.open", "source.import", "source.replace"].includes(
+            request.method,
+          )
+        )
           return {
             issue: {
               kind: "validation",
-              message: "UTF-8のCSVファイルを選択してください。",
+              message: "UTF-8の2列CSVファイルを選択してください。",
             },
           };
         throw error;
