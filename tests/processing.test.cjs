@@ -33,7 +33,8 @@ test("CSV retains Japanese, spaces, case, quoted commas/quotes/newlines and BOM 
 });
 test("CSV rejects invalid records with record positions and ignores only entirely empty lines", () => {
   for (const [csv, record] of [
-    ["a,b\na,c", 2],
+    ["a,b\na, ", 2],
+    ["a,b\na,c,d", 2],
     ["a,b,c", 1],
     ["a, ", 1],
     ['"a', 1],
@@ -288,5 +289,32 @@ test("100,000 entries retain longest-match and first/last entries across a compi
   assert.equal(
     replaceText(text, index).text,
     "ワード0 ワード11 ワード99999 Word99999_extra MyWord11",
+  );
+});
+
+test("CSV accepts duplicate sources with first-record priority and preserves literal keys", () => {
+  const parsed = parseCsv(
+    '\ufeffAppDock,アップドック\r\nAppDock,後の読み\r\n"two\nlines",先の読み\r\n"two\nlines",後の読み\r\nAPPDOCK,大文字\r\n" AppDock ",空白\r\nAppDock,アップドック',
+  );
+  assert.deepEqual(
+    parsed.map(({ source, replacement }) => [source, replacement]),
+    [
+      ["AppDock", "アップドック"],
+      ["two\nlines", "先の読み"],
+      ["APPDOCK", "大文字"],
+      [" AppDock ", "空白"],
+    ],
+  );
+  assert.equal(new Set(parsed.map((row) => row.id)).size, 4);
+  assert.equal(
+    replaceText("AppDock", dictionaryIndex(parsed)).text,
+    "アップドック",
+  );
+  assert.deepEqual(
+    parseCsv(exportCsv(parsed)).map(({ source, replacement }) => [
+      source,
+      replacement,
+    ]),
+    parsed.map(({ source, replacement }) => [source, replacement]),
   );
 });

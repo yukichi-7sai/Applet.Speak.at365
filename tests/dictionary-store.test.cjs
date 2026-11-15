@@ -230,3 +230,52 @@ test("disabled sources release their rows and protect externally changed copies 
   assert(warning.includes(file));
   assert.equal(f.data.get("shared/" + file), "語,新しい外部変更");
 });
+
+test("duplicate CSV rows retain their original bytes while first occurrences survive import, reload and re-import", async () => {
+  const f = await fixture(),
+    s = f.store;
+  const sourceCsv =
+    "\ufeff共通,配布の先頭\r\n独自,固有の読み\r\n共通,配布の後続\r\n独自,固有の読み\r\n";
+  await s.importSource(
+    sourceCsv,
+    "配布辞書",
+    undefined,
+    s.snapshot.revision,
+    authorize,
+  );
+  const original = s.snapshot.entries[0];
+  assert.equal(original.count, 2);
+  assert.equal(f.data.get("shared/" + original.file), sourceCsv);
+  assert.equal(
+    replaceText("共通 独自", s.snapshot.index).text,
+    "配布の先頭 固有の読み",
+  );
+  const userCsv = "共通,個人の先頭\n共通,個人の後続";
+  await s.replaceUser(userCsv, s.snapshot.revision, authorize);
+  assert.equal(s.snapshot.userRows.length, 1);
+  assert.equal(f.data.get("shared/user.csv"), userCsv);
+  const restarted = new DictionaryStore(f.files);
+  assert.equal(await restarted.reload(), true);
+  assert.equal(
+    replaceText("共通 独自", restarted.snapshot.index).text,
+    "個人の先頭 固有の読み",
+  );
+  await restarted.replaceUser("", restarted.snapshot.revision, authorize);
+  assert.equal(
+    replaceText("共通", restarted.snapshot.index).text,
+    "配布の先頭",
+  );
+  await restarted.importSource(
+    "共通,更新の先頭\n共通,更新の後続",
+    "配布辞書",
+    original.id,
+    restarted.snapshot.revision,
+    authorize,
+  );
+  assert.equal(restarted.snapshot.entries[0].count, 1);
+  assert.equal(restarted.snapshot.entries[0].id, original.id);
+  assert.equal(
+    replaceText("共通", restarted.snapshot.index).text,
+    "更新の先頭",
+  );
+});

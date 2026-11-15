@@ -57,13 +57,15 @@ function parseCsv(text) {
       if (fields.length !== 2) invalid("置換元と置換先の2列にしてください。");
       if (fields.some((v) => !v.trim()))
         invalid("空の値や空白だけの値は使えません。");
-      if (sources.has(fields[0])) invalid("置換元が重複しています。");
-      sources.add(fields[0]);
-      rows.push({
-        id: randomUUID(),
-        source: fields[0],
-        replacement: fields[1],
-      });
+      // Keep the first occurrence, matching the merge order across dictionaries.
+      if (!sources.has(fields[0])) {
+        sources.add(fields[0]);
+        rows.push({
+          id: randomUUID(),
+          source: fields[0],
+          replacement: fields[1],
+        });
+      }
     }
     fields = [];
     started = false;

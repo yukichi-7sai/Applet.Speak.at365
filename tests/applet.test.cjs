@@ -284,3 +284,26 @@ test("old Settings dictionaries are ignored, large word views page, and PC switc
   assert(!f.storage.data.get("shared/user.csv").includes("旧辞書"));
   assert.equal(f.storage.data.get("device/user.csv"), "端末,このPC");
 });
+
+test("CSV preview and saved lookup agree on first duplicate while manual duplicate words remain a validation error", async () => {
+  const f = fixture();
+  await f.start();
+  const csv = "共通,最初の読み\n別語,べつ\n共通,後の読み";
+  const preview = await f.invoke("csv.preview", { csv });
+  assert.equal(preview.issue, undefined);
+  assert.equal(preview.dialog.title, "辞書の取り込み: 2件");
+  assert.equal(preview.dialog.values.preview, "共通 → 最初の読み\n別語 → べつ");
+  assert.ok((await f.invoke("csv.apply", preview.dialog.values)).feedback);
+  assert.equal(f.storage.data.get("shared/user.csv"), csv);
+  assert.equal(
+    (await f.invoke("text.preview", { text: "共通 別語" })).dialog.values
+      .replaced,
+    "最初の読み べつ",
+  );
+  const duplicateEdit = await f.invoke("user.save", {
+    source: "共通",
+    replacement: "重複する追加",
+  });
+  assert.equal(duplicateEdit.issue.kind, "validation");
+  assert.equal(f.storage.data.get("shared/user.csv"), csv);
+});

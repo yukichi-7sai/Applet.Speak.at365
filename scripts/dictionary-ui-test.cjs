@@ -56,12 +56,14 @@ const catalog = () =>
 const readUser = () => fs.readFileSync(path.join(shared, "user.csv"), "utf8");
 const userCsv =
   "\ufeff個人優先,個人\r\n共通,個人共通\r\n" +
-  Array.from({ length: 248 }, (_, i) => `ユーザー${i},読み${i}`).join("\r\n");
+  Array.from({ length: 248 }, (_, i) => `ユーザー${i},読み${i}`).join("\r\n") +
+  "\r\n共通,後の重複";
 const sourceCsv = (tag) =>
   `共通,${tag}\n個人優先,配布\n` +
   Array.from({ length: 50000 }, (_, i) => `固有${tag}${i},読み${tag}${i}`).join(
     "\n",
-  );
+  ) +
+  `\n共通,後の重複${tag}\n固有${tag}49999,後の重複する読み`;
 const input = (name, csv) => {
   const file = path.join(profile, name + ".csv");
   fs.writeFileSync(file, csv);
@@ -180,7 +182,12 @@ async function useShared() {
     const exported = path.join(profile, "exported.csv");
     await selectFile(exported, true);
     await button("書き出し").click();
-    await until(() => fs.existsSync(exported), "CSV export");
+    await until(
+      () =>
+        fs.existsSync(exported) &&
+        fs.readFileSync(exported, "utf8") === userCsv,
+      "complete CSV export",
+    );
     assert.equal(fs.readFileSync(exported, "utf8"), userCsv);
     assert.equal(
       (await page.evaluate(() => window.dock.snapshot())).settings.value
@@ -193,6 +200,12 @@ async function useShared() {
 
     await importFile(sourceA, "辞書A");
     await importFile(sourceB, "辞書B");
+    for (const [i, entry] of catalog().entries()) {
+      assert.equal(
+        fs.readFileSync(path.join(shared, entry.file), "utf8"),
+        fs.readFileSync([sourceA, sourceB][i], "utf8"),
+      );
+    }
     assert.deepEqual(
       catalog().map((entry) => entry.count),
       [50002, 50002],
@@ -237,7 +250,7 @@ async function useShared() {
     await until(() => catalog()[0].enabled === false, "disable source");
     await preview("共通", "A");
     checks.push(
-      "100,004 distributed rows merge with user priority; keyboard reordering and enable switch change lookup results",
+      "duplicate CSV rows merge into 100,004 distributed keys; first rows, user priority, keyboard order and enable switches decide lookup",
     );
 
     const oldA = catalog().find((entry) => entry.name === "辞書A");
