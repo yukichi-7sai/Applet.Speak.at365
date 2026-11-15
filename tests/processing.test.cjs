@@ -145,6 +145,8 @@ test("processor applies replacement before splitting, uses exclusive policies an
     { dictionaryIgnoreCase: "false" },
     { prefixText: null },
     { suffixText: 1 },
+    { prefixNewline: "false" },
+    { suffixNewline: null },
   ])
     assert.throws(() => settings(patch));
 });
@@ -198,6 +200,12 @@ test("blank additions contribute no separators while nonblank whitespace and new
     {},
     { prefixText: "", suffixText: "" },
     { prefixText: " \n\t", suffixText: "\r\n " },
+    {
+      prefixText: " \n\t",
+      suffixText: "\r\n ",
+      prefixNewline: false,
+      suffixNewline: false,
+    },
   ].entries())
     assert.equal(process(input, value, i).text, input);
   assert.equal(
@@ -214,6 +222,79 @@ test("blank additions contribute no separators while nonblank whitespace and new
     " 前文\n続き \n  本文です。  \n 後文 ",
   );
   assert.throws(() => process(" \n ", { prefixText: "前文" }, "empty-body"));
+});
+test("newline choices are independent and dictionary matching sees the combined text", () => {
+  const process = createProcessor();
+  const index = dictionaryIndex(
+    rows([
+      ["hello", "ハロー"],
+      ["keyboard", "キーボード"],
+    ]),
+  );
+  for (const [prefixNewline, suffixNewline, expected] of [
+    [true, true, "前。\nハロー。\n後。"],
+    [false, true, "前。ハロー。\n後。"],
+    [true, false, "前。\nハロー。後。"],
+    [false, false, "前。ハロー。後。"],
+  ]) {
+    const plan = process(
+      "Hello。",
+      {
+        prefixText: "前。",
+        suffixText: "後。",
+        prefixNewline,
+        suffixNewline,
+        targetCharacters: 4,
+      },
+      `${prefixNewline}/${suffixNewline}`,
+      index,
+    );
+    assert.equal(plan.text, expected);
+    assert.equal(plan.segments.join(""), expected);
+  }
+  assert.equal(
+    process(
+      "board",
+      {
+        prefixText: "key",
+        prefixNewline: false,
+      },
+      "joined-prefix",
+      index,
+    ).text,
+    "キーボード",
+  );
+  assert.equal(
+    process(
+      "key",
+      {
+        suffixText: "board",
+        suffixNewline: false,
+      },
+      "joined-suffix",
+      index,
+    ).text,
+    "キーボード",
+  );
+  assert.equal(
+    process("board", { prefixText: "key" }, "separate", index).text,
+    "key\nboard",
+  );
+  assert.equal(
+    process(
+      "本文",
+      {
+        prefixText: " 前\n文 ",
+        suffixText: " 後\n文 ",
+        prefixNewline: false,
+        suffixNewline: false,
+        dictionaryEnabled: false,
+        splitEnabled: false,
+      },
+      "preserved",
+    ).text,
+    " 前\n文 本文 後\n文 ",
+  );
 });
 test("a large personal dictionary and long input remain complete without caps", () => {
   const dictionary = rows(

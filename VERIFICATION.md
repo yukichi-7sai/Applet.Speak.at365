@@ -1,5 +1,15 @@
 # 検証記録
 
+## 2026-11-16 前後文の改行を個別に選択
+
+- 0.7.0、minimumHostVersion 0.249.0。「前の文章の後に改行を入れる」`prefixNewline`と「後の文章の前に改行を入れる」`suffixNewline`を通常設定へ追加した。両方初期trueで、設定がない場合も従来どおり改行する。OFF側は空白/区切りを足さずに直接結合し、入力した文章自体の空白・改行は保持する。空白だけの前後文は設定にかかわらず追加しない。設定追加のためマイナー更新した。
+- 発行前レビューで初期値とboolean検証、前後の独立した4通り、空欄と入力の改行保持、結合後の辞書変換/分割、MCP自己設定snapshot、プレビューとの共通処理、既存の辞書常駐を確認し、未解決の指摘なし。公開MCPの4入力/accepted応答、本体/RelayのAPIと保存ファイルの形式は維持する。
+- 固定Node 26.13.1で単体32件、publish内でも同32件が成功。4通りの変換/分割結果、改行OFFで境界をまたいで完成する`keyboard`の辞書照合、入力の空白/内部改行保持、空欄、型不正、プレビュー再更新とMCPの一致、連続処理で辞書を再読込しないことを検証した。ログは`.artifacts/addition-newlines-unit-20261116.log`、`addition-newlines-publish-20261116.log`。
+- 発行済みSpeakと固定AppDock 0.249.3で辞書画面8群、本体結合10群が成功。設定の初期ON、4通りのプレビュー、両方OFFの保存とホスト再起動後の復元、空欄/空白だけへの変更、CSV原文保全を確認した。実MCPからは改行OFFの前後文を辞書変換した`アップドック改!Silent fixture!アップドック改`がモックTTSへ届き、`instructions: gentle`は別に保持する。受付後の設定変更/公開OFF/切断/提供Applet停止でも確定済み計画が1回だけ継続する。実サーバー品質と物理音声は対象外。
+- 画面profile=`.artifacts/dictionary-ui-1794784448918/`、ログ=`addition-newlines-fixed-ui-20261116.log`。本体結合profile=`applet-api-portable-1794784430288/`、ログは本体の`.artifacts/addition-newlines-fixed-integration-20261116.log`。固定EXE SHA-256=`f0dc6ccc413f5b5119277df68df1ed4c2377368b61dde61bdef75f7668c7690a`。実行コマンドは前項と同じ共通ランタイム方式で、発行済みAppletを入力にして直列に検証した。専用EXEコピーは作っていない。
+- 共通publishで更新feed/ZIPを発行し、版/最低ホスト版/容量/SHA-256、ZIP全5項目・原本・展開済み発行物・両固定試験の入力ハッシュを照合した。ZIP SHA-256=`1acc05d16b99a1c69371385e84619e277c799107e9244bdc303d9692975e8b21`。証跡は`.artifacts/addition-newlines-publication-20261116.json`。辞書エンジン/Storage/依存は本件で変更しておらず、メモリ測定と本体全回帰は再実行しない。製品/試験の後続変更はなく、記録追記とコミットに上記の成功を再利用する。本件の本体差分は設計書と結合fixtureのみで、既存の別作業の変更を保持した。
+- 成功後に通常ユーザー環境でプロセス参照と再解析ポイントを確認し、古い成功`dictionary-ui-1794778718077/`と本体の`applet-api-portable-1794764939239/`を整理した。各方式の直近3成功、失敗/不明分、共通ランタイム・固定build・発行物は保持し、保留/失敗0件。旧結果JSON/ハッシュは`.artifacts/addition-newlines-cleanup-20261116.json`へ保存した。push・外部公開・実利用先配置は行っていない。
+
 ## 2026-11-16 読み上げの前後に文章を追加
 
 - 0.6.0、minimumHostVersion 0.249.0。通常設定へ`prefixText`/`suffixText`（前に付ける文章/後に付ける文章、初期値は空文字）を追加した。空欄・空白や改行だけの項目は除き、前文・元の本文・後文を改行1つで結合してから辞書変換・自動分割する。辞書変換/分割がOFFでも追加する。MCP本文の必須条件、4入力、`instructions`、accepted応答と本体/RelayのAPIは維持する。設定追加のためマイナー更新した。

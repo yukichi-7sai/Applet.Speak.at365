@@ -178,6 +178,18 @@ async function useShared() {
         await page.getByRole("textbox", { name, exact: true }).inputValue(),
         "",
       );
+    const prefixNewline = () =>
+      page.getByRole("switch", {
+        name: "前の文章の後に改行を入れる",
+        exact: true,
+      });
+    const suffixNewline = () =>
+      page.getByRole("switch", {
+        name: "後の文章の前に改行を入れる",
+        exact: true,
+      });
+    assert.equal(await prefixNewline().isChecked(), true);
+    assert.equal(await suffixNewline().isChecked(), true);
     await page
       .getByRole("heading", { name: "辞書変換", exact: true })
       .waitFor();
@@ -398,14 +410,30 @@ async function useShared() {
       await settleSettings(page);
     };
     await saveAddition("前に付ける文章", "Hello!");
-    await saveAddition("後に付ける文章", "Python.");
-    await preview("English", "ハロー!\nイングリッシュ\nパイソン.");
+    await saveAddition("後に付ける文章", "!Python.");
+    await preview("English", "ハロー!\nイングリッシュ\n!パイソン.");
+    await prefixNewline().click();
+    await settleSettings(page);
+    await preview("English", "ハロー!イングリッシュ\n!パイソン.");
+    await suffixNewline().click();
+    await settleSettings(page);
+    await preview("English", "ハロー!イングリッシュ!パイソン.");
+    await prefixNewline().click();
+    await settleSettings(page);
+    await preview("English", "ハロー!\nイングリッシュ!パイソン.");
+    await prefixNewline().click();
+    await settleSettings(page);
     assert.equal(readUser(), good);
     await host.close();
     await open();
     assert.equal(await additionField("前に付ける文章").inputValue(), "Hello!");
-    assert.equal(await additionField("後に付ける文章").inputValue(), "Python.");
-    await preview("English", "ハロー!\nイングリッシュ\nパイソン.");
+    assert.equal(
+      await additionField("後に付ける文章").inputValue(),
+      "!Python.",
+    );
+    assert.equal(await prefixNewline().isChecked(), false);
+    assert.equal(await suffixNewline().isChecked(), false);
+    await preview("English", "ハロー!イングリッシュ!パイソン.");
     await saveAddition("前に付ける文章", "   ");
     await saveAddition("後に付ける文章", " ");
     await preview("English", "イングリッシュ");
@@ -413,8 +441,12 @@ async function useShared() {
     await saveAddition("後に付ける文章", "");
     await preview("English", "イングリッシュ");
     assert.equal(readUser(), good);
+    await prefixNewline().click();
+    await settleSettings(page);
+    await suffixNewline().click();
+    await settleSettings(page);
     checks.push(
-      "prefix and suffix save and survive restart, are included in dictionary preview, and empty or whitespace-only values add no text",
+      "prefix/suffix and independent newline choices persist across restart, all four combinations reach dictionary preview, and blank values add no text",
     );
 
     await tab("source-dictionaries");

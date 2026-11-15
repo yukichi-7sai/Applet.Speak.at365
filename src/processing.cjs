@@ -209,7 +209,9 @@ function splitText(text, target, protectedRanges = []) {
 function settings(value = {}) {
   const result = {
     prefixText: "",
+    prefixNewline: true,
     suffixText: "",
+    suffixNewline: true,
     splitEnabled: true,
     targetCharacters: 300,
     dictionaryEnabled: true,
@@ -221,7 +223,9 @@ function settings(value = {}) {
   };
   if (
     typeof result.prefixText !== "string" ||
+    typeof result.prefixNewline !== "boolean" ||
     typeof result.suffixText !== "string" ||
+    typeof result.suffixNewline !== "boolean" ||
     !Number.isSafeInteger(result.targetCharacters) ||
     result.targetCharacters < 1 ||
     !Number.isSafeInteger(result.startCount) ||
@@ -247,9 +251,13 @@ function createProcessor() {
       config = settings(value);
       cachedRevision = revision;
     }
-    const joined = [config.prefixText, text, config.suffixText]
-      .filter((part) => part.trim())
-      .join("\n");
+    const prefix = config.prefixText.trim()
+      ? config.prefixText + (config.prefixNewline ? "\n" : "")
+      : "";
+    const suffix = config.suffixText.trim()
+      ? (config.suffixNewline ? "\n" : "") + config.suffixText
+      : "";
+    const joined = prefix + text + suffix;
     const replaced = config.dictionaryEnabled
       ? replaceText(
           joined,

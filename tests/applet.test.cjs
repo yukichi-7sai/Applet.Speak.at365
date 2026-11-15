@@ -162,20 +162,37 @@ test("configured additions share the preview and MCP pipeline and can be cleared
     );
     assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
   }
+  for (const key of ["prefixNewline", "suffixNewline"]) {
+    assert.equal(
+      manifest.settings.find((setting) => setting.key === key).default,
+      true,
+    );
+    assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
+  }
   assert.deepEqual(
     manifest.settingSections.find((section) => section.id === "text-additions")
       .settings,
-    ["prefixText", "suffixText"],
+    ["prefixText", "prefixNewline", "suffixText", "suffixNewline"],
   );
   const reads = f.storage.reads.length;
-  for (const [revision, value] of [
-    { prefixText: "Hello", suffixText: "Python", splitEnabled: false },
-    { prefixText: "", suffixText: "", splitEnabled: false },
+  for (const [revision, [additions, expected]] of [
+    [{}, "ハロー!\nイングリッシュ\n!パイソン"],
+    [{ prefixNewline: false }, "ハロー!イングリッシュ\n!パイソン"],
+    [{ suffixNewline: false }, "ハロー!\nイングリッシュ!パイソン"],
+    [
+      { prefixNewline: false, suffixNewline: false },
+      "ハロー!イングリッシュ!パイソン",
+    ],
+    [{ prefixText: "", suffixText: "" }, "イングリッシュ"],
   ].entries()) {
+    const value = {
+      prefixText: "Hello!",
+      suffixText: "!Python",
+      splitEnabled: false,
+      ...additions,
+    };
     f.set(value);
     const preview = await f.invoke("text.preview", { text: "English" });
-    const expected =
-      revision === 0 ? "ハロー\nイングリッシュ\nパイソン" : "イングリッシュ";
     assert.equal(preview.dialog.values.text, "English");
     assert.equal(preview.dialog.values.replaced, expected);
     assert.equal(
