@@ -174,16 +174,23 @@ function createExtension() {
             );
           case "text.preview": {
             const plan = processText(values.text, config, revision(config));
+            const p = plan.startPolicy;
+            const start = p.mode === "first" ? "最初の1個ができたら再生します。" :
+              p.mode === "all" ? "全部の音声ができたら再生します。" :
+              p.mode === "count" ? `先頭から${Math.min(p.count, plan.segments.length)}個の音声ができたら再生します。` :
+              `最初の音声ができてから${p.seconds}秒待って再生します。待機中も続きの音声を生成します。`;
             return dialog(
               "文章プレビュー",
               [
                 field("text", "読み上げる文章"),
                 field("replaced", "置換後の文章", true),
                 field("segments", `分割結果: ${plan.segments.length}個`, true),
+                field("start", "再生開始", true),
               ],
               {
                 text: values.text,
                 replaced: plan.text,
+                start,
                 segments: plan.segments
                   .map((part, i) => `${i + 1}. ${part}`)
                   .join("\n\n"),

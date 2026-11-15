@@ -4,7 +4,7 @@ $speechRoot = Split-Path $PSScriptRoot -Parent
 $speechHost = Join-Path $speechRoot '..\AppDock.at365'
 . (Join-Path $speechHost 'scripts\publish-paths.ps1')
 $speechOutput = Get-PublishDirectory $speechRoot
-$speechDestination = Join-Path $speechOutput 'applet'
+$speechDestination = Join-Path $speechOutput 'extensions\at365.speech'
 Push-Location $speechRoot
 try {
     & (Join-Path $speechHost 'dev.bat') exec node --test (Join-Path $speechRoot 'tests\processing.test.cjs') (Join-Path $speechRoot 'tests\applet.test.cjs')

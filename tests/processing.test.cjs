@@ -99,6 +99,7 @@ test("splitting preserves all content, graphemes, URLs, long words and replaced 
     }
     assert.ok(parts.some((p) => p.includes("https://example.com/a.b?q=1")));
     assert.ok(parts.some((p) => p.includes("next_word")));
+    assert.ok(parts.some((p) => p.includes("3.14")));
   }
   const parts = splitText("「最初の文章。」次の文章です。", 7);
   assert.ok(parts[0].endsWith("」"));

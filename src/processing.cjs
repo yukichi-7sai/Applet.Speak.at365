@@ -167,7 +167,7 @@ function splitText(text, target, protectedRanges = []) {
   if (!text.trim()) throw new InputError("読み上げる文章を入力してください。");
   const atomic = [...protectedRanges];
   for (const match of text.matchAll(
-    /(?:https?:\/\/|www\.)\S+|[A-Za-z0-9_]+(?:['’-][A-Za-z0-9_]+)*/g,
+    /(?:https?:\/\/|www\.)\S+|[0-9]+(?:[.,][0-9]+)+|[A-Za-z0-9_]+(?:['’-][A-Za-z0-9_]+)*/g,
   ))
     atomic.push({ start: match.index, end: match.index + match[0].length });
   atomic.sort((a, b) => a.start - b.start || b.end - a.end);
