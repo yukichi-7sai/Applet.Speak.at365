@@ -1,20 +1,20 @@
 param()
 $ErrorActionPreference = 'Stop'
-$speechRoot = Split-Path $PSScriptRoot -Parent
-$speechHost = Join-Path $speechRoot '..\AppDock.at365'
-. (Join-Path $speechHost 'scripts\publish-paths.ps1')
-$speechOutput = Get-PublishDirectory $speechRoot
-$speechDestination = Join-Path $speechOutput 'extensions\at365.speech'
-Push-Location $speechRoot
+$speakRoot = Split-Path $PSScriptRoot -Parent
+$speakHost = Join-Path $speakRoot '..\AppDock.at365'
+. (Join-Path $speakHost 'scripts\publish-paths.ps1')
+$speakOutput = Get-PublishDirectory $speakRoot
+$speakDestination = Join-Path $speakOutput 'extensions\at365.speak'
+Push-Location $speakRoot
 try {
-    & (Join-Path $speechHost 'dev.bat') exec node --test (Join-Path $speechRoot 'tests\processing.test.cjs') (Join-Path $speechRoot 'tests\applet.test.cjs')
+    & (Join-Path $speakHost 'dev.bat') exec node --test (Join-Path $speakRoot 'tests\processing.test.cjs') (Join-Path $speakRoot 'tests\applet.test.cjs')
     if ($LASTEXITCODE -ne 0) { throw 'Applet tests failed.' }
-    New-Item -ItemType Directory -Path (Join-Path $speechDestination 'src') -Force | Out-Null
-    foreach ($speechFile in @('extension.json', 'index.cjs')) {
-        Copy-Item -LiteralPath (Join-Path $speechRoot $speechFile) -Destination (Join-Path $speechDestination $speechFile) -Force
+    New-Item -ItemType Directory -Path (Join-Path $speakDestination 'src') -Force | Out-Null
+    foreach ($speakFile in @('extension.json', 'index.cjs')) {
+        Copy-Item -LiteralPath (Join-Path $speakRoot $speakFile) -Destination (Join-Path $speakDestination $speakFile) -Force
     }
-    Copy-Item -LiteralPath (Join-Path $speechRoot 'src\processing.cjs') -Destination (Join-Path $speechDestination 'src\processing.cjs') -Force
-    & (Join-Path $speechHost 'scripts\pack-applet-update.ps1') -SourceDirectory $speechDestination -OutputDirectory $speechOutput
+    Copy-Item -LiteralPath (Join-Path $speakRoot 'src\processing.cjs') -Destination (Join-Path $speakDestination 'src\processing.cjs') -Force
+    & (Join-Path $speakHost 'scripts\pack-applet-update.ps1') -SourceDirectory $speakDestination -OutputDirectory $speakOutput
     if (-not $?) { throw 'Applet update packaging failed.' }
-    Write-Host "Published: $speechOutput"
+    Write-Host "Published: $speakOutput"
 } finally { Pop-Location }

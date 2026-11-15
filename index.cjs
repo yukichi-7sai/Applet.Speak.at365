@@ -52,7 +52,7 @@ function createExtension() {
     },
     async onMcpTool(request, signal) {
       if (
-        request.moduleId !== "at365.speech.read-aloud" ||
+        request.moduleId !== "at365.speak.read-aloud" ||
         request.name !== "appdock_speech_speak"
       )
         throw new InputError("読み上げツールが見つかりません。");

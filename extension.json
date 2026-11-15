@@ -1,11 +1,11 @@
 {
   "apiVersion": 1,
-  "id": "at365.speech",
-  "name": "読み上げApplet",
+  "id": "at365.speak",
+  "name": "Applet.Speak.at365",
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割や個人辞書で、読み上げを好みに合わせられます。",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "minimumHostVersion": "0.246.0",
   "runtime": "node",
   "entry": "index.cjs",
@@ -107,7 +107,7 @@
     {
       "id": "publication",
       "title": "MCP公開",
-      "mcpModules": ["at365.speech.read-aloud"]
+      "mcpModules": ["at365.speak.read-aloud"]
     },
     {
       "id": "splitting",
@@ -187,7 +187,7 @@
   ],
   "mcpToolModules": [
     {
-      "id": "at365.speech.read-aloud",
+      "id": "at365.speak.read-aloud",
       "title": "読み上げツール",
       "description": "Speakの個人辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",

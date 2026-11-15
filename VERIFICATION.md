@@ -1,5 +1,15 @@
 # 検証記録
 
+## 2026-11-15 Speakへの識別名統一
+
+- Git履歴とmainを保持してrepoフォルダーを`Applet.Speech.at365`から`Applet.Speak.at365`へ移動。正式名を`Applet.Speak.at365`、Applet IDを`at365.speak`、モジュールIDを`at365.speak.read-aloud`へ統一し、通常の発行先も`Applet.Speak.at365/extensions/at365.speak`へ揃えた。旧repo/発行先フォルダーが残らないことを確認した。
+- 旧IDの設定・公開ON/OFFは別扱いとし、移行や別名を追加していない。MCP公開名`appdock_speech_speak`と4入力/accepted応答はRelay/Voiceとの共通契約として維持する。Applet識別子の破壊的変更を含むため0.2.0へマイナー更新。旧版との二重提供を避ける導入手順を利用ガイドへ記載した。
+- 発行前レビューで宣言/handler/設定参照/配置/文書リンクを確認。既存Applet9件、本体のMCP/監査/提供者26件と共有fixtureのAutomation35件が成功。旧Speechモジュールの保存済みONではSpeakが有効にならないことも検査した。
+- 共通publishでローカル発行し、更新feed/manifestの新ID・正式名・版、ZIP全3項目とrepo原本/発行物のSHA-256を照合。固定AppDock 0.246.0・新IDの発行済みSpeak・隔離Relayで既存結合11群が成功。専用fixtureバイナリーを回収済み。証跡は`.artifacts/speak-rename-20261115/`と本体の同名フォルダー。
+- update.zip SHA-256: `c94540332514e807fed30b1625ddec11e832e548d9bf0908403b083bd7894ac7`。manifest: `52ee999625973043b75ad1f6ddd5cd1d92bea066b75339fb42c1e4c8e1add11a`。index: `3f46cb2a1a79fb6ce477a13954515953d6c4beea77f289a226bf8afb948dae92`。文章処理本体の内容ハッシュは0.1.1と同じ。
+
+本体製品の変更・発行、実利用先への配置、remote作成/変更、push/外部公開は行っていない。旧IDの利用者設定は操作していない。
+
 ## 2026-11-15 Speakの表示名と紹介文
 
 - displayNameを`Speak`、taglineを`AIの言葉に、声を。`へ設定。概要とMCP表示タイトル/モジュール説明、利用ガイドを更新した。Applet ID・モジュールID・公開ツール名/Schema・通常設定・配置先・リポジトリ名は維持する。公開API/設定の追加変更を伴わない表示更新として0.1.1へパッチ更新した。

@@ -72,7 +72,7 @@ test("one MCP tool accepts four public fields and sends only a prepared host seq
   assert.deepEqual(
     await f.extension.onMcpTool(
       {
-        moduleId: "at365.speech.read-aloud",
+        moduleId: "at365.speak.read-aloud",
         name: tool[0].name,
         input,
         settings: {
@@ -114,7 +114,7 @@ test("MCP receipt waits for host acceptance without waiting for generation", asy
   const pending = f.extension
     .onMcpTool(
       {
-        moduleId: "at365.speech.read-aloud",
+        moduleId: "at365.speak.read-aloud",
         name: "appdock_speech_speak",
         input: { text: "hello" },
         settings: { revision: "a", value: {} },
