@@ -2,8 +2,10 @@
   "apiVersion": 1,
   "id": "at365.speech",
   "name": "読み上げApplet",
-  "description": "個人辞書と文章分割を使って、指定した音声サーバーで読み上げます。",
-  "version": "0.1.0",
+  "displayName": "Speak",
+  "tagline": "AIの言葉に、声を。",
+  "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割や個人辞書で、読み上げを好みに合わせられます。",
+  "version": "0.1.1",
   "minimumHostVersion": "0.246.0",
   "runtime": "node",
   "entry": "index.cjs",
@@ -187,7 +189,7 @@
     {
       "id": "at365.speech.read-aloud",
       "title": "読み上げツール",
-      "description": "読み上げAppletの個人辞書・文章分割・再生開始設定を使って読み上げます。",
+      "description": "Speakの個人辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",
       "settingsKeys": [
         "splitEnabled",
@@ -201,7 +203,7 @@
       "tools": [
         {
           "name": "appdock_speech_speak",
-          "title": "読み上げApplet: 文章を読み上げる",
+          "title": "Speak: 文章を読み上げる",
           "description": "文章を指定した接続で読み上げます。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。",
           "inputSchema": {
             "type": "object",

@@ -1,4 +1,4 @@
-# Applet.Speech.at365
+# Speak
 
 `publish.bat`で発行し、発行先の`extensions/at365.speech`フォルダーをAppDockの`extensions/at365.speech`へ配置してください。
 

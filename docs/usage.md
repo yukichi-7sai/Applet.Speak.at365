@@ -1,6 +1,10 @@
-# 読み上げApplet
+# Speak
 
-AppDock 0.246.0以降。設定の「読み上げApplet」でMCP公開をONにすると、`appdock_speech_speak`を1つ公開する。初期状態はOFF。本体の「MCPツール」と同じ公開設定を編集する。
+**AIの言葉に、声を。**
+
+音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割や個人辞書で、読み上げを好みに合わせられます。
+
+AppDock 0.246.0以降。設定の「Speak」でMCP公開をONにすると、`appdock_speech_speak`を1つ公開する。初期状態はOFF。本体の「MCPツール」と同じ公開設定を編集する。
 
 入力は本文`text`、任意の接続ID`connectionId`、接続名`connectionName`、ニュアンス`instructions`。接続IDを優先し、未指定の場合だけ設定順の名前完全一致を使う。名前の省略・一致なしは既定接続。不明IDでは別接続へ切り替えない。本体が受け付けると`{accepted:true}`を返す。
 
