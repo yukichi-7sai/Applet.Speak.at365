@@ -1,4 +1,4 @@
-param()
+﻿param()
 $ErrorActionPreference = 'Stop'
 $speakRoot = Split-Path $PSScriptRoot -Parent
 $speakHost = Join-Path $speakRoot '..\AppDock.at365'
@@ -14,6 +14,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $speakRoot $speakFile) -Destination (Join-Path $speakDestination $speakFile) -Force
     }
     Copy-Item -LiteralPath (Join-Path $speakRoot 'src\processing.cjs') -Destination (Join-Path $speakDestination 'src\processing.cjs') -Force
+    Copy-Item -LiteralPath (Join-Path $speakRoot 'src\dictionary-engine.cjs') -Destination (Join-Path $speakDestination 'src\dictionary-engine.cjs') -Force
     & (Join-Path $speakHost 'scripts\pack-applet-update.ps1') -SourceDirectory $speakDestination -OutputDirectory $speakOutput
     if (-not $?) { throw 'Applet update packaging failed.' }
     Write-Host "Published: $speakOutput"

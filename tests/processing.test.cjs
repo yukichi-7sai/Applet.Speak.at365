@@ -154,3 +154,63 @@ test("a large personal dictionary and long input remain complete without caps", 
     "ワード11999を ワード11 ".repeat(1200),
   );
 });
+
+// A deliberately simple independent matcher checks behavior, not trie layout.
+function referenceReplace(text, dictionary) {
+  const parts = [], ranges = [];
+  const ascii = (character) => !!character && /^[A-Za-z0-9_]$/.test(character);
+  let outputLength = 0;
+  for (let i = 0; i < text.length;) {
+    let found;
+    for (const row of dictionary) {
+      if (!text.startsWith(row.source, i)) continue;
+      const end = i + row.source.length, before = text.charCodeAt(end - 1), after = text.charCodeAt(end);
+      if (before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff) continue;
+      if (/^[A-Za-z0-9]+$/.test(row.source) && (ascii(text[i - 1]) || ascii(text[end]))) continue;
+      if (!found || row.source.length > found.source.length) found = row;
+    }
+    if (found) {
+      parts.push(found.replacement);
+      ranges.push({ start: outputLength, end: outputLength + found.replacement.length });
+      outputLength += found.replacement.length;
+      i += found.source.length;
+    } else {
+      const character = String.fromCodePoint(text.codePointAt(i));
+      parts.push(character); outputLength += character.length; i += character.length;
+    }
+  }
+  return { text: parts.join(''), ranges };
+}
+test("compiled dictionary preserves literal matching for unsorted Unicode, phrases and overlapping keys", () => {
+  let seed = 89125;
+  const random = (count) => {
+    seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+    return (seed >>> 0) % count;
+  };
+  const units = ['a', 'b', 'A', '0', '_', '日', '本', '橋', '😀', '𠮷', '\ue000', ' ', '-', '\n', '\u0301'];
+  for (let trial = 0; trial < 100; trial++) {
+    const sources = new Set(['日本', '日本橋', 'a b', '😀', '😀a', '\ue000', '𠮷野', '\ud800']);
+    while (sources.size < 36) {
+      const source = Array.from({ length: 1 + random(8) }, () => units[random(units.length)]).join('');
+      if (source.trim()) sources.add(source);
+    }
+    const dictionary = rows([...sources].map((source, i) => [source, `置換${i}`]));
+    const text = Array.from({ length: 300 }, () => units[random(units.length)]).join('') + ' ' + [...sources].join(' ');
+    assert.deepEqual(replaceText(text, dictionaryIndex(dictionary)), referenceReplace(text, dictionary));
+  }
+});
+test("compiled dictionary owns a stable snapshot and handles empty and deep dictionaries", () => {
+  const dictionary = rows([['日本橋', 'にほんばし'], ['日本', 'にほん']]);
+  const index = dictionaryIndex(dictionary);
+  dictionary[0].replacement = '編集途中'; dictionary.reverse(); dictionary.length = 0;
+  assert.equal(replaceText('日本橋と日本', index).text, 'にほんばしとにほん');
+  assert.deepEqual(replaceText('😀 日本', dictionaryIndex([])), { text: '😀 日本', ranges: [] });
+  const deep = '日'.repeat(10000);
+  assert.equal(replaceText(deep, dictionaryIndex(rows([[deep, '長い登録語']]))).text, '長い登録語');
+});
+test("100,000 entries retain longest-match and first/last entries across a compiled index", () => {
+  const dictionary = rows(Array.from({ length: 100000 }, (_, i) => [`Word${i}`, `ワード${i}`]));
+  const index = dictionaryIndex(dictionary);
+  const text = 'Word0 Word11 Word99999 Word99999_extra MyWord11';
+  assert.equal(replaceText(text, index).text, 'ワード0 ワード11 ワード99999 Word99999_extra MyWord11');
+});

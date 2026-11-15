@@ -1,4 +1,5 @@
 const { randomUUID } = require("node:crypto");
+const { compileDictionary } = require("./dictionary-engine.cjs");
 class InputError extends Error {
   constructor(message) {
     super(message);
@@ -110,55 +111,10 @@ function exportCsv(rows) {
     .join("\r\n");
 }
 function dictionaryIndex(rows) {
-  const root = new Map();
-  for (const row of validateDictionary(rows)) {
-    let node = root;
-    for (const c of row.source) {
-      if (!node.has(c)) node.set(c, new Map());
-      node = node.get(c);
-    }
-    node.row = { ...row, word: /^[A-Za-z0-9]+$/.test(row.source) };
-  }
-  return root;
+  return compileDictionary(validateDictionary(rows));
 }
-const asciiWord = (c) => !!c && /^[A-Za-z0-9_]$/.test(c);
-function replaceText(text, root) {
-  const pieces = [],
-    ranges = [];
-  let outputLength = 0;
-  for (let i = 0; i < text.length;) {
-    let node = root,
-      found,
-      end = i;
-    for (let j = i; j < text.length;) {
-      const c = String.fromCodePoint(text.codePointAt(j));
-      node = node.get(c);
-      if (!node) break;
-      j += c.length;
-      if (
-        node.row &&
-        (!node.row.word || (!asciiWord(text[i - 1]) && !asciiWord(text[j])))
-      ) {
-        found = node.row;
-        end = j;
-      }
-    }
-    if (found) {
-      pieces.push(found.replacement);
-      ranges.push({
-        start: outputLength,
-        end: outputLength + found.replacement.length,
-      });
-      outputLength += found.replacement.length;
-      i = end;
-    } else {
-      const c = String.fromCodePoint(text.codePointAt(i));
-      pieces.push(c);
-      outputLength += c.length;
-      i += c.length;
-    }
-  }
-  return { text: pieces.join(""), ranges };
+function replaceText(text, index) {
+  return index.replace(text);
 }
 const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
 function splitText(text, target, protectedRanges = []) {

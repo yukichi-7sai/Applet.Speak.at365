@@ -4,6 +4,8 @@
 
 外部依存のないNode CommonJS Applet。`src/processing.cjs`がCSV・辞書・分割、`index.cjs`が宣言型設定の補助操作とMCP handlerを所有する。`extension.json`が版・最低ホスト版・設定・MCP宣言の正本。
 
+辞書の検索は`src/dictionary-engine.cjs`の連続配列型トライで行う。[辞書エンジンとCSV保存の実装方針](docs/dictionary-engine.md)で検索契約と後続の保存分離を定義する。
+
 設定タブと補助ボタンはAppDock 0.247.0以降の[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。通常設定の保存キーを保ち、`helpers`へ辞書を複製しない。将来の配布辞書は`settingsTabs`へ追加できるが、本版には実装しない。
 
 `test.bat`は本体の固定Nodeで`tests/*.test.cjs`を実行する。`publish.bat`はテスト後に明示したファイルだけを発行先の`extensions/at365.speak`へ配置し、共通pack-applet-update.ps1で更新ZIP/JSONを作る。発行先は共通publish-paths.ps1で解決する。外部公開と実利用先への配置は別操作。
