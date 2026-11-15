@@ -25,6 +25,11 @@ function fixture() {
     appdock: {
       call: async (...args) => {
         calls.push(args);
+        if (args[0] === "tts.connections.list")
+          return {
+            connections: [{ id: "alice", name: "ALICE" }],
+            defaultConnectionId: "alice",
+          };
         return { completion: "accepted" };
       },
     },
@@ -283,7 +288,7 @@ test("preview is read-only, CSV import is previewed, and stale/external requests
   );
   assert.deepEqual(
     view.tabs[0].toolbar.map((action) => action.id),
-    ["text.open"],
+    ["text.open", "audition.open"],
   );
   assert.deepEqual(
     view.tabs[1].toolbar[0].items.map((action) => action.id),
@@ -319,6 +324,168 @@ test("preview is read-only, CSV import is previewed, and stale/external requests
     ),
   );
 });
+test("audition opens without audio and submits the current Speak plan to the selected connection", async () => {
+  const f = fixture();
+  f.storage.data.set(
+    "shared/user.csv",
+    "hello,ハロー\nenglish,イングリッシュ\npython,パイソン",
+  );
+  await f.start();
+  f.set({
+    prefixText: "Hello!",
+    suffixText: "!Python",
+    prefixNewline: false,
+    suffixNewline: false,
+    targetCharacters: 8,
+    startMode: "count",
+    startCount: 2,
+  });
+  const reads = f.storage.reads.length;
+  const opened = await f.invoke("audition.open");
+  assert.equal(opened.dialog.submit.id, "audition.speak");
+  assert.equal(opened.dialog.values.connectionId, "");
+  assert.deepEqual(
+    opened.dialog.fields.find((field) => field.key === "connectionId").options,
+    [
+      { value: "", label: "既定の接続" },
+      { value: "alice", label: "ALICE" },
+    ],
+  );
+  assert.deepEqual(
+    f.calls.map(([method]) => method),
+    ["tts.connections.list"],
+  );
+  const values = { text: "English。次です。", connectionId: "alice" };
+  const preview = await f.invoke("text.preview", values);
+  const originalCall = f.context.appdock.call;
+  let accept;
+  f.context.appdock.call = async (method, params) => {
+    if (method !== "tts.sequences.speak") return originalCall(method, params);
+    f.calls.push([method, params]);
+    return new Promise((resolve) => {
+      accept = resolve;
+    });
+  };
+  let returned = false;
+  const pending = f.invoke("audition.speak", values).then((result) => {
+    returned = true;
+    return result;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(returned, false);
+  const sent = f.calls.at(-1);
+  assert.equal(sent[0], "tts.sequences.speak");
+  assert.equal(sent[1].segments.join(""), preview.dialog.values.replaced);
+  assert.equal(
+    sent[1].segments.join(""),
+    "ハロー!イングリッシュ。次です。!パイソン",
+  );
+  assert(sent[1].segments.length > 1);
+  assert.equal(sent[1].connectionId, "alice");
+  assert(!Object.hasOwn(sent[1], "instructions"));
+  assert.deepEqual(sent[1].startPolicy, { mode: "count", count: 2 });
+  accept({ sequenceId: "fixture", completion: "accepted" });
+  const reply = await pending;
+  assert(reply.feedback);
+  assert.deepEqual(reply.dialog.values, values);
+  f.context.appdock.call = originalCall;
+  f.set({ prefixText: "前。", splitEnabled: false });
+  await f.invoke("audition.speak", { text: "Hello!", connectionId: "" });
+  assert.deepEqual(f.calls.at(-1), [
+    "tts.sequences.speak",
+    { segments: ["前。\nハロー!"], startPolicy: { mode: "first" } },
+  ]);
+  assert.equal(f.storage.reads.length, reads);
+  assert.equal(f.storage.writes.length, 0);
+});
+
+test("audition validates text and connections and never retries a failed host acceptance", async () => {
+  const f = fixture();
+  await f.start();
+  for (const values of [
+    { text: " \n " },
+    { text: "試聴", connectionId: "missing" },
+    { text: "試聴", connectionId: 3 },
+  ])
+    assert.equal(
+      (await f.invoke("audition.speak", values)).issue.kind,
+      "validation",
+    );
+  assert.equal(
+    f.calls.filter(([method]) => method === "tts.sequences.speak").length,
+    0,
+  );
+  f.context.appdock.call = async (method, params) => {
+    f.calls.push([method, params]);
+    if (method === "tts.connections.list") return { connections: [] };
+    throw Error("must not synthesize");
+  };
+  const opened = await f.invoke("audition.open");
+  assert.equal(opened.dialog.submit.disabled, true);
+  assert.match(opened.dialog.fields[1].description, /音声生成AI/);
+  assert.equal(
+    (await f.invoke("audition.speak", { text: "試聴" })).issue.kind,
+    "validation",
+  );
+  f.context.appdock.call = async (method, params) => {
+    f.calls.push([method, params]);
+    if (method === "tts.connections.list")
+      return { connections: [{ id: "alice", name: "ALICE" }] };
+    throw Object.assign(Error("connection removed before acceptance"), {
+      code: "NOT_FOUND",
+    });
+  };
+  await assert.rejects(
+    f.invoke("audition.speak", { text: "試聴", connectionId: "alice" }),
+    { code: "NOT_FOUND" },
+  );
+  assert.equal(
+    f.calls.filter(([method]) => method === "tts.sequences.speak").length,
+    1,
+  );
+  assert.equal(f.storage.writes.length, 0);
+});
+
+test("audition rechecks authorization and cancellation after connection lookup", async () => {
+  const f = fixture();
+  await f.start();
+  f.context.providers.authorize = async () => {
+    throw Object.assign(Error("revoked"), { code: "CANCELLED" });
+  };
+  await assert.rejects(f.invoke("audition.speak", { text: "試聴" }), {
+    code: "CANCELLED",
+  });
+  assert.equal(
+    f.calls.filter(([method]) => method === "tts.sequences.speak").length,
+    0,
+  );
+  const controller = new AbortController();
+  let finishLookup;
+  f.context.appdock.call = (method) => {
+    assert.equal(method, "tts.connections.list");
+    return new Promise((resolve) => {
+      finishLookup = resolve;
+    });
+  };
+  const pending = f.extension.onProviderRequest(
+    f.request("audition.speak", { text: "試聴" }),
+    controller.signal,
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort();
+  finishLookup({ connections: [{ id: "alice", name: "ALICE" }] });
+  await assert.rejects(pending, { name: "AbortError" });
+  await assert.rejects(
+    f.extension.onProviderRequest(
+      {
+        ...f.request("audition.speak", { text: "試聴" }),
+        actor: { kind: "mcp", external: true },
+      },
+      f.signal,
+    ),
+  );
+});
+
 test("word editing, distributed dictionary priority and toggles use the same CSV-backed data", async () => {
   const f = fixture();
   await f.start();

@@ -12,6 +12,8 @@
 
 設定タブと補助ボタンは[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。単語一覧・配布辞書一覧・優先順・編集ダイアログは本体の共通部品を使用する。通常設定と`helpers`へ辞書を複製しない。AppDock 0.249.0以降の[ファイルStorage](../AppDock.at365/docs/storage-files.md)を`configuration` scopeで使う。既存のSettings内の辞書は使用せず、移行を実装しない。
 
+「試聴」はローカルの`audition.open`（read）と`audition.speak`（execute）を使う。既存の`tts.connections.list`からID/名前だけを選択肢にし、`tts.sequences.speak`へプレビューと同じ現在設定の計画を送る。本文/接続選択を設定へ保存せず、MCP公開ON/OFFとは独立する。候補取得後に操作認可と取消を再確認し、不明接続・受付失敗を既定接続への切り替えや自動再試行で回避しない。受付後のダイアログ更新に追加通信は行わず、音声の生成/再生完了を待たない。
+
 `test.bat`は本体の固定Nodeで`tests/*.test.cjs`を実行する。`publish.bat`はテスト後に明示したファイルだけを発行先の`extensions/at365.speak`へ配置し、共通pack-applet-update.ps1で更新ZIP/JSONを作る。発行先は共通publish-paths.ps1で解決する。外部公開と実利用先への配置は別操作。
 
 本体との結合試験は本体`scripts/applet-api-ui-test.cjs`を使い、検証結果・入力ハッシュは[VERIFICATION](VERIFICATION.md)へ記録する。実サーバー品質と物理出力はfixtureによる受付・プレイヤー完了と区別する。

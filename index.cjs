@@ -34,6 +34,52 @@ function createExtension() {
         context.settings.get(setting.key, setting.default),
       ]),
     );
+  const localPlan = (text) => {
+    const config = current();
+    const index = config.dictionaryEnabled
+      ? dictionaries.snapshot?.index
+      : emptyIndex;
+    if (!index)
+      throw new InputError(
+        "辞書を読み込めません。設定画面で再読み込みしてください。",
+      );
+    return processText(text, config, JSON.stringify(config), index);
+  };
+  const auditionDialog = (connections, values, revision) =>
+    dialog(
+      "読み上げの試聴",
+      [
+        {
+          ...field("text", "読み上げる文章"),
+          initialFocus: true,
+          required: true,
+          description:
+            "Speakの前後の文章・辞書変換・自動分割・再生開始設定を使って読み上げます。",
+        },
+        {
+          key: "connectionId",
+          title: "音声接続",
+          type: "select",
+          options: [
+            { value: "", label: "既定の接続" },
+            ...connections.map(({ id, name }) => ({ value: id, label: name })),
+          ],
+          description: connections.length
+            ? "選んだ接続の声・話し方で読み上げます。既定の接続は変更しません。"
+            : "音声接続がありません。AppDockの「音声生成AI」で接続を登録してください。",
+        },
+      ],
+      {
+        text: values.text ?? "Hello! Speakの読み上げを試聴します。",
+        connectionId: values.connectionId ?? "",
+      },
+      {
+        id: "audition.speak",
+        title: "試聴する",
+        disabled: !connections.length,
+      },
+      revision,
+    );
   const sourceRow = (state, id) => {
     const row = state.entries.find((entry) => entry.id === id);
     if (!row)
@@ -286,7 +332,10 @@ function createExtension() {
                 {
                   id: "settings",
                   panels: warning,
-                  toolbar: [{ id: "text.open", title: "文章プレビュー" }],
+                  toolbar: [
+                    { id: "text.open", title: "文章プレビュー" },
+                    { id: "audition.open", title: "試聴" },
+                  ],
                 },
                 {
                   id: "user-dictionary",
@@ -504,13 +553,7 @@ function createExtension() {
               rev,
             );
           case "text.preview": {
-            const config = current(),
-              plan = processText(
-                values.text,
-                config,
-                JSON.stringify(config),
-                state.index,
-              ),
+            const plan = localPlan(values.text),
               p = plan.startPolicy;
             const start =
               p.mode === "first"
@@ -542,6 +585,49 @@ function createExtension() {
               { id: "text.preview", title: "更新する" },
               rev,
             );
+          }
+          case "audition.open": {
+            const { connections } = await context.appdock.call(
+              "tts.connections.list",
+              {},
+            );
+            signal.throwIfAborted();
+            return auditionDialog(connections, {}, rev);
+          }
+          case "audition.speak": {
+            const connectionId = values.connectionId ?? "";
+            if (typeof connectionId !== "string")
+              throw new InputError("音声接続を選択してください。");
+            const { connections } = await context.appdock.call(
+              "tts.connections.list",
+              {},
+            );
+            if (!connections.length)
+              throw new InputError(
+                "AppDockの「音声生成AI」で接続を登録してください。",
+              );
+            if (
+              connectionId &&
+              !connections.some(({ id }) => id === connectionId)
+            )
+              throw new InputError(
+                "音声接続が見つかりません。試聴画面を開き直してください。",
+              );
+            await dictionaries.ready();
+            await authorize();
+            signal.throwIfAborted();
+            const plan = localPlan(values.text);
+            const reply = auditionDialog(
+              connections,
+              values,
+              dictionaries.snapshot?.revision ?? rev,
+            );
+            await context.appdock.call("tts.sequences.speak", {
+              segments: plan.segments,
+              startPolicy: plan.startPolicy,
+              ...(connectionId ? { connectionId } : {}),
+            });
+            return { ...reply, feedback: "試聴の読み上げを受け付けました。" };
           }
           default:
             throw new InputError("操作が見つかりません。");
