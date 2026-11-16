@@ -518,7 +518,7 @@ test("word editing, distributed dictionary priority and toggles use the same CSV
     (await f.invoke("text.preview", { text: "用語" })).dialog.values.replaced,
     "個人",
   );
-  const row = (await f.view()).tabs[1].panels[1].rows[0];
+  const row = (await f.view()).tabs[1].panels[0].rows[0];
   const edit = await f.invoke("user.edit", row.values, { rowId: row.id });
   assert.equal(edit.dialog.values.replacement, "個人");
   await f.invoke("user.delete", row.values, { rowId: row.id });
@@ -537,7 +537,7 @@ test("word editing, distributed dictionary priority and toggles use the same CSV
   assert(f.storage.data.get("shared/catalog.json").includes("辞書A"));
   assert(!f.storage.data.get("shared/catalog.json").includes("用語"));
 });
-test("old Settings dictionaries are ignored, large word views page, and PC switch changes the prepared dictionary", async () => {
+test("word views contain the full table without pagination or redundant panels and preserve PC scope", async () => {
   const f = fixture();
   f.set({
     dictionary: [{ id: "old", source: "旧辞書", replacement: "移行しない" }],
@@ -547,14 +547,15 @@ test("old Settings dictionaries are ignored, large word views page, and PC switc
     Array.from({ length: 250 }, (_, i) => `Word${i},ワード${i}`).join("\n"),
   );
   await f.start();
-  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 100);
-  await f.invoke("user.next");
+  assert.equal((await f.view()).tabs[1].panels.length, 1);
+  assert.equal((await f.view()).tabs[2].panels.length, 1);
+  assert.equal((await f.view()).tabs[1].panels[0].rows.length, 250);
   assert.equal(
-    (await f.view()).tabs[1].panels[1].rows[0].values.source,
-    "Word100",
+    (await f.view()).tabs[1].panels[0].rows[249].values.source,
+    "Word249",
   );
   await f.storage.switchScope("device");
-  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 0);
+  assert.equal((await f.view()).tabs[1].panels[0].rows.length, 0);
   await f.invoke("user.save", { source: "端末", replacement: "このPC" });
   await assert.rejects(
     f.extension.onMcpTool(
@@ -573,7 +574,7 @@ test("old Settings dictionaries are ignored, large word views page, and PC switc
   );
   assert.equal(f.calls.length, 0);
   await f.storage.switchScope("shared");
-  assert.equal((await f.view()).tabs[1].panels[1].rows.length, 100);
+  assert.equal((await f.view()).tabs[1].panels[0].rows.length, 250);
   assert(!f.storage.data.get("shared/user.csv").includes("旧辞書"));
   assert.equal(f.storage.data.get("device/user.csv"), "端末,このPC");
 });

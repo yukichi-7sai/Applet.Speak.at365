@@ -1,5 +1,7 @@
 # 開発ガイド
 
+ユーザー辞書は全行を共通providerテーブルへ返し、ページ状態と前後ページactionを持たない。AppDock 0.249.6以降の共通仮想表示と全件検索を利用するため最低ホスト版も揃える。ユーザー辞書の「表示範囲」と配布辞書の「辞書の優先順」パネルを置かず、配布順序はテーブルの列と並べ替え操作で示す。CSV形式・行ID・照合の優先順位は保持する。
+
 [AppDock共通指示](../AppDock.at365/AGENTS.md)、[Applet API](../AppDock.at365/docs/extensions.md)、[読み上げ設計](../AppDock.at365/docs/speech-applet-design.md)、[共通固定ランタイム](../AppDock.at365/docs/test-runtime.md)を正本とする。
 
 利用方法は[Speakの使い方](docs/usage.md)を参照する。外部依存のないNode CommonJS Applet。`src/processing.cjs`がCSV検証・置換・分割、`src/dictionary-store.cjs`がCSV保存・辞書統合・索引の寿命、`index.cjs`が宣言型設定とMCP handlerを所有する。`extension.json`が版・最低ホスト版・設定・MCP宣言の正本。

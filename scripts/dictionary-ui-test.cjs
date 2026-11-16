@@ -72,8 +72,13 @@ const input = (name, csv) => {
 const userInput = input("user-input", userCsv),
   sourceA = input("source-A", sourceCsv("A")),
   sourceB = input("source-B", sourceCsv("B"));
-const host = isolatedHost(profile, path.resolve(process.argv[2]), artifacts);
+const host = isolatedHost(
+  profile,
+  process.argv[2] === "--source" ? undefined : path.resolve(process.argv[2]),
+  artifacts,
+);
 const checks = [];
+const measurements = [];
 let page;
 const button = (name) => page.getByRole("button", { name, exact: true });
 const tab = (id) => page.getByTestId("provider-settings-tab:" + id).click();
@@ -203,11 +208,24 @@ async function useShared() {
     assert.equal(readUser(), userCsv);
     const words = () =>
       page.getByRole("table", { name: "ユーザー辞書", exact: true });
-    assert.equal(await words().getByRole("row").count(), 101);
-    await button("次のページ").click();
+    assert.equal(
+      await page
+        .getByRole("heading", { name: "表示範囲", exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(await button("次のページ").count(), 0);
+    assert.equal(await words().getAttribute("aria-rowcount"), "257");
+    assert((await words().locator("[data-virtual-row]").count()) < 200);
+    const wordSearch = () =>
+      page.getByRole("searchbox", { name: "ユーザー辞書を検索", exact: true });
+    await wordSearch().fill("ユーザー98");
+    await page.keyboard.press("Enter");
     await words()
       .getByRole("button", { name: "ユーザー98を編集", exact: true })
       .waitFor();
+    await wordSearch().fill("");
+    await page.keyboard.press("Enter");
     const exported = path.join(profile, "exported.csv");
     await selectFile(exported, true);
     await button("書き出し").click();
@@ -224,7 +242,128 @@ async function useShared() {
       undefined,
     );
     checks.push(
-      "UTF-8 BOM/CRLF user CSV imports and exports unchanged; 256 words page without entering Settings JSON",
+      "UTF-8 BOM/CRLF user CSV imports and exports unchanged; 256 words form one virtual table without pagination or entering Settings JSON",
+    );
+
+    const largeCount = Number(process.env.APPDOCK_TEST_USER_WORDS || 10000);
+    const virtualErrors = [];
+    const captureVirtualError = (error) => virtualErrors.push(error.message);
+    page.on("pageerror", captureVirtualError);
+    const largeInput = input(
+      "large-user",
+      Array.from(
+        { length: largeCount },
+        (_, i) =>
+          `仮想${i},${i === largeCount - 1 ? "折り返す長い読み".repeat(30) : `読み${i}`}`,
+      ).join("\n"),
+    );
+    const largeStart = performance.now();
+    await importFile(largeInput);
+    await words().waitFor();
+    const renderCount = await words().locator("[data-virtual-row]").count();
+    assert(renderCount < 200);
+    assert.equal(
+      await words().getAttribute("aria-rowcount"),
+      String(largeCount + 1),
+    );
+    const lastRendered = await words()
+      .locator("[data-virtual-row]")
+      .last()
+      .evaluate((row) => {
+        const controls = [...row.querySelectorAll("button")].filter(
+          (button) => button.tabIndex >= 0 && !button.disabled,
+        );
+        controls.at(-1).focus();
+        return Number(row.dataset.virtualRow);
+      });
+    await page.keyboard.press("Tab");
+    assert.equal(
+      await words().evaluate((table) =>
+        Number(
+          document.activeElement.closest("[data-virtual-row]")?.dataset
+            .virtualRow,
+        ),
+      ),
+      lastRendered + 1,
+    );
+    await page.keyboard.press("Shift+Tab");
+    assert.equal(
+      await words().evaluate((table) =>
+        Number(
+          document.activeElement.closest("[data-virtual-row]")?.dataset
+            .virtualRow,
+        ),
+      ),
+      lastRendered,
+    );
+    await words().evaluate((table) => {
+      for (
+        let parent = table.parentElement;
+        parent;
+        parent = parent.parentElement
+      )
+        if (
+          /(auto|scroll)/.test(getComputedStyle(parent).overflowY) &&
+          parent.scrollHeight > parent.clientHeight
+        ) {
+          parent.scrollTop = parent.scrollHeight;
+          return;
+        }
+    });
+    const lastWord = words().getByRole("button", {
+      name: `仮想${largeCount - 1}を編集`,
+      exact: true,
+    });
+    await lastWord.waitFor();
+    await lastWord.click();
+    assert.equal(
+      await page
+        .getByRole("textbox", { name: "置換元", exact: true })
+        .inputValue(),
+      `仮想${largeCount - 1}`,
+    );
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    const middle = Math.floor(largeCount / 2);
+    await host.evaluate((electron) =>
+      electron.BrowserWindow.getAllWindows()
+        .find((window) =>
+          window.webContents.getURL().startsWith("appdock://host/"),
+        )
+        .setSize(760, 900),
+    );
+    await lastWord.scrollIntoViewIfNeeded();
+    assert(
+      (await lastWord.evaluate(
+        (button) => button.closest("tr").getBoundingClientRect().height,
+      )) > 150,
+      "long readings wrap into a measured variable-height row",
+    );
+    await page.screenshot({ path: path.join(profile, "user-virtual-end.png") });
+    await wordSearch().fill(`仮想${middle}`);
+    await page.keyboard.press("Enter");
+    await words()
+      .getByRole("button", { name: `仮想${middle}を編集`, exact: true })
+      .click();
+    await page
+      .getByRole("textbox", { name: "置換先", exact: true })
+      .fill("仮想編集済み");
+    await button("OK").click();
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    assert(readUser().includes(`仮想${middle},仮想編集済み`));
+    measurements.push({
+      userWords: largeCount,
+      importScrollEditMs: Math.round(performance.now() - largeStart),
+      initialRenderedRows: renderCount,
+    });
+    page.off("pageerror", captureVirtualError);
+    assert.deepEqual(virtualErrors, []);
+    await wordSearch().fill("");
+    await page.keyboard.press("Enter");
+    await importFile(userInput);
+    assert.equal(readUser(), userCsv);
+    checks.push(
+      "large user dictionary keeps mounted rows bounded, reaches wrapped final rows, preserves Tab/Shift+Tab order across virtual boundaries and edits searched rows by stable ID",
     );
 
     const caseInput =
@@ -262,7 +401,6 @@ async function useShared() {
       "個人共通 個人 読みA49999 読みB49999",
     );
     await tab("user-dictionary");
-    await button("前のページ").click();
     await words()
       .getByRole("button", { name: "共通を削除", exact: true })
       .click();
@@ -273,6 +411,12 @@ async function useShared() {
     await page.getByRole("dialog").waitFor({ state: "hidden" });
     await preview("共通 個人優先", "A 個人");
     await tab("source-dictionaries");
+    assert.equal(
+      await page
+        .getByRole("heading", { name: "辞書の優先順", exact: true })
+        .count(),
+      0,
+    );
     await page
       .getByTestId("provider:helpers:source-dictionaries:list:order")
       .click();
@@ -503,6 +647,7 @@ async function useShared() {
         ]),
       ),
       checks,
+      measurements,
     };
     fs.writeFileSync(
       path.join(profile, "result.json"),

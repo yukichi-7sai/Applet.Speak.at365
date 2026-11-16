@@ -10,7 +10,6 @@ const {
 } = require("./src/processing.cjs");
 const { DictionaryStore } = require("./src/dictionary-store.cjs");
 const manifest = require("./extension.json");
-const PAGE_SIZE = 100;
 const emptyIndex = dictionaryIndex([]);
 const field = (key, title, readOnly = false) => ({
   key,
@@ -23,9 +22,7 @@ const dialog = (title, fields, values, submit, revision) => ({
   dialog: { title, fields, values, submit, revision },
 });
 function createExtension() {
-  let context,
-    dictionaries,
-    userPage = 0;
+  let context, dictionaries;
   const processText = createProcessor();
   const current = () =>
     Object.fromEntries(
@@ -139,68 +136,38 @@ function createExtension() {
       { id: "user.save", title: "OK", primary: true },
       state.revision,
     );
-  const userPanels = (state) => {
-    userPage = Math.min(
-      userPage,
-      Math.max(0, Math.ceil(state.userRows.length / PAGE_SIZE) - 1),
-    );
-    const offset = userPage * PAGE_SIZE;
-    return [
-      {
-        id: "user-page",
-        title: "表示範囲",
-        description: `全${state.userRows.length}件・${userPage + 1}/${Math.max(1, Math.ceil(state.userRows.length / PAGE_SIZE))}ページ。共有とこのPC専用の辞書は別々に保存します。`,
+  const userPanels = (state) => [
+    {
+      id: "user-words",
+      title: "ユーザー辞書",
+      columns: [
+        { key: "source", title: "置換元" },
+        { key: "replacement", title: "置換先" },
+      ],
+      list: { titleKey: "source" },
+      actions: [{ id: "user.add", title: "単語を追加", role: "add" }],
+      rows: state.userRows.map((row) => ({
+        id: row.id,
+        values: { ...row },
         actions: [
           {
-            id: "user.previous",
-            title: "前のページ",
-            disabled: userPage === 0,
+            id: "user.edit",
+            title: "単語を編集",
+            role: "edit",
+            rowId: row.id,
           },
           {
-            id: "user.next",
-            title: "次のページ",
-            disabled: offset + PAGE_SIZE >= state.userRows.length,
+            id: "user.delete",
+            title: "単語を削除",
+            role: "delete",
+            rowId: row.id,
+            confirm: `「${row.source}」をユーザー辞書CSVから削除しますか？`,
           },
         ],
-      },
-      {
-        id: "user-words",
-        title: "ユーザー辞書",
-        columns: [
-          { key: "source", title: "置換元" },
-          { key: "replacement", title: "置換先" },
-        ],
-        list: { titleKey: "source" },
-        actions: [{ id: "user.add", title: "単語を追加", role: "add" }],
-        rows: state.userRows.slice(offset, offset + PAGE_SIZE).map((row) => ({
-          id: row.id,
-          values: { ...row },
-          actions: [
-            {
-              id: "user.edit",
-              title: "単語を編集",
-              role: "edit",
-              rowId: row.id,
-            },
-            {
-              id: "user.delete",
-              title: "単語を削除",
-              role: "delete",
-              rowId: row.id,
-              confirm: `「${row.source}」をユーザー辞書CSVから削除しますか？`,
-            },
-          ],
-        })),
-      },
-    ];
-  };
-  const sourcePanels = (state) => [
-    {
-      id: "source-priority",
-      title: "辞書の優先順",
-      description:
-        "同じ置換元はユーザー辞書を最優先し、配布辞書は一覧の上から優先します。共有とこのPC専用の辞書は別々に保存します。",
+      })),
     },
+  ];
+  const sourcePanels = (state) => [
     {
       id: "source-dictionaries",
       title: "配布辞書",
@@ -250,7 +217,6 @@ function createExtension() {
   ];
   const reload = async () => {
     await dictionaries.reload();
-    userPage = 0;
     await context.providers.changed();
   };
   return {
@@ -380,12 +346,6 @@ function createExtension() {
           );
         const rowId = request.params.rowId ?? values.id;
         switch (request.method) {
-          case "user.previous":
-            userPage = Math.max(0, userPage - 1);
-            return {};
-          case "user.next":
-            userPage++;
-            return {};
           case "user.add":
             return userDialog(state);
           case "user.edit": {
@@ -461,7 +421,6 @@ function createExtension() {
             assertRevision();
             if (values.target === "user") {
               await dictionaries.replaceUser(values.csv, expected, authorize);
-              userPage = 0;
               return {
                 feedback: `${parseCsv(values.csv).length}件のユーザー辞書をCSVに保存しました。`,
               };
