@@ -147,6 +147,8 @@ test("processor applies replacement before splitting, uses exclusive policies an
     { suffixText: 1 },
     { prefixNewline: "false" },
     { suffixNewline: null },
+    { additionTiming: "later" },
+    { additionTiming: null },
   ])
     assert.throws(() => settings(patch));
 });
@@ -294,6 +296,86 @@ test("newline choices are independent and dictionary matching sees the combined 
       "preserved",
     ).text,
     " 前\n文 本文 後\n文 ",
+  );
+});
+test("after-split additions wrap every part without re-splitting or converting replacements twice", () => {
+  const index = dictionaryIndex(
+    rows([
+      ["hello", "開始の長い文章"],
+      ["python", "終了"],
+      ["一", "甲"],
+      ["甲", "二重変換"],
+      ["開始の長い文章", "二重変換"],
+      ["終了", "二重変換"],
+    ]),
+  );
+  const plan = createProcessor()(
+    "一。二。三。",
+    {
+      additionTiming: "after-split",
+      prefixText: "Hello!",
+      suffixText: "!Python",
+      prefixNewline: false,
+      suffixNewline: false,
+      targetCharacters: 2,
+      startMode: "count",
+      startCount: 2,
+    },
+    "after",
+    index,
+  );
+  assert.deepEqual(plan.segments, [
+    "開始の長い文章!甲。!終了",
+    "開始の長い文章!二。!終了",
+    "開始の長い文章!三。!終了",
+  ]);
+  assert.equal(plan.text, plan.segments.join(""));
+  assert.deepEqual(plan.startPolicy, { mode: "count", count: 2 });
+});
+test("after-split additions honor blank text, newline choices and disabled conversion or splitting", () => {
+  const process = createProcessor();
+  assert.deepEqual(
+    process(
+      "一。二。",
+      {
+        additionTiming: "after-split",
+        prefixText: "前",
+        suffixText: "後",
+        splitEnabled: false,
+        targetCharacters: 1,
+      },
+      "single",
+    ).segments,
+    ["前\n一。二。\n後"],
+  );
+  assert.deepEqual(
+    process(
+      "一。二。",
+      {
+        additionTiming: "after-split",
+        prefixText: " 前\n文 ",
+        suffixText: " 後文 ",
+        prefixNewline: false,
+        suffixNewline: false,
+        dictionaryEnabled: false,
+        targetCharacters: 2,
+      },
+      "literal",
+    ).segments,
+    [" 前\n文 一。 後文 ", " 前\n文 二。 後文 "],
+  );
+  assert.deepEqual(
+    process(
+      "一。二。",
+      {
+        additionTiming: "after-split",
+        prefixText: " \n",
+        suffixText: "\t",
+        targetCharacters: 2,
+      },
+      "blank",
+    ).segments,
+    ["一。", "二。"],
   );
 });
 test("a large personal dictionary and long input remain complete without caps", () => {

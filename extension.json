@@ -5,7 +5,7 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "minimumHostVersion": "0.249.6",
   "runtime": "node",
   "entry": "index.cjs",
@@ -18,6 +18,17 @@
     "storage"
   ],
   "settings": [
+    {
+      "key": "additionTiming",
+      "title": "前後の文章を追加するタイミング",
+      "type": "select",
+      "default": "before-split",
+      "options": [
+        { "label": "分割前に追加する", "value": "before-split" },
+        { "label": "分割後に各部分へ追加する", "value": "after-split" }
+      ],
+      "description": "分割後は、本文の各部分すべてに前後の文章を付けます。追加後には再分割しません。"
+    },
     {
       "key": "prefixText",
       "title": "前に付ける文章",
@@ -127,8 +138,14 @@
     {
       "id": "text-additions",
       "title": "前後の文章",
-      "description": "追加した文章も辞書変換・自動分割の対象になります。",
-      "settings": ["prefixText", "prefixNewline", "suffixText", "suffixNewline"]
+      "description": "前後の文章も辞書変換の対象になります。分割後は各部分に追加します。",
+      "settings": [
+        "additionTiming",
+        "prefixText",
+        "prefixNewline",
+        "suffixText",
+        "suffixNewline"
+      ]
     },
     {
       "id": "splitting",
@@ -434,6 +451,7 @@
       "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",
       "settingsKeys": [
+        "additionTiming",
         "prefixText",
         "prefixNewline",
         "suffixText",

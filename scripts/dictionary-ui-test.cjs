@@ -141,7 +141,7 @@ async function importFile(file, name, row) {
   }
   await page.getByRole("dialog").waitFor({ state: "hidden" });
 }
-async function preview(text, expected) {
+async function preview(text, expected, segments) {
   await tab("settings");
   await button("文章プレビュー").click();
   await page
@@ -154,6 +154,17 @@ async function preview(text, expected) {
   });
   await output.waitFor();
   assert.equal(await output.inputValue(), expected);
+  if (segments) {
+    assert.equal(
+      await page
+        .getByRole("textbox", {
+          name: `分割結果: ${segments.length}個`,
+          exact: true,
+        })
+        .inputValue(),
+      segments.map((part, i) => `${i + 1}. ${part}`).join("\n\n"),
+    );
+  }
   await page.keyboard.press("Escape");
   await page.getByRole("dialog").waitFor({ state: "hidden" });
 }
@@ -195,6 +206,12 @@ async function useShared() {
       });
     assert.equal(await prefixNewline().isChecked(), true);
     assert.equal(await suffixNewline().isChecked(), true);
+    const additionTiming = () =>
+      page.getByRole("combobox", {
+        name: "前後の文章を追加するタイミング",
+        exact: true,
+      });
+    assert.equal(await additionTiming().inputValue(), "before-split");
     await page
       .getByRole("heading", { name: "辞書変換", exact: true })
       .waitFor();
@@ -568,6 +585,22 @@ async function useShared() {
     await prefixNewline().click();
     await settleSettings(page);
     assert.equal(readUser(), good);
+    await page.getByLabel("分割の目安文字数", { exact: true }).fill("2");
+    await page.keyboard.press("Enter");
+    await settleSettings(page);
+    await additionTiming().selectOption("after-split");
+    await settleSettings(page);
+    const decoratedParts = [
+      "ハロー!一。!パイソン.",
+      "ハロー!二。!パイソン.",
+      "ハロー!三。!パイソン.",
+    ];
+    await preview("一。二。三。", decoratedParts.join(""), decoratedParts);
+    await additionTiming().selectOption("before-split");
+    await settleSettings(page);
+    await preview("一。二。三。", "ハロー!一。二。三。!パイソン.");
+    await additionTiming().selectOption("after-split");
+    await settleSettings(page);
     await host.close();
     await open();
     assert.equal(await additionField("前に付ける文章").inputValue(), "Hello!");
@@ -577,6 +610,11 @@ async function useShared() {
     );
     assert.equal(await prefixNewline().isChecked(), false);
     assert.equal(await suffixNewline().isChecked(), false);
+    assert.equal(await additionTiming().inputValue(), "after-split");
+    await preview("一。二。三。", decoratedParts.join(""), decoratedParts);
+    checks.push(
+      "addition timing defaults to before-split, switches to every-part additions without re-splitting, and persists across restart with preview parity",
+    );
     await preview("English", "ハロー!イングリッシュ!パイソン.");
     await saveAddition("前に付ける文章", "   ");
     await saveAddition("後に付ける文章", " ");
@@ -588,6 +626,11 @@ async function useShared() {
     await prefixNewline().click();
     await settleSettings(page);
     await suffixNewline().click();
+    await settleSettings(page);
+    await additionTiming().selectOption("before-split");
+    await settleSettings(page);
+    await page.getByLabel("分割の目安文字数", { exact: true }).fill("300");
+    await page.keyboard.press("Enter");
     await settleSettings(page);
     checks.push(
       "prefix/suffix and independent newline choices persist across restart, all four combinations reach dictionary preview, and blank values add no text",

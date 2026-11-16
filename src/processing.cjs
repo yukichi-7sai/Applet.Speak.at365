@@ -208,6 +208,7 @@ function splitText(text, target, protectedRanges = []) {
 }
 function settings(value = {}) {
   const result = {
+    additionTiming: "before-split",
     prefixText: "",
     prefixNewline: true,
     suffixText: "",
@@ -222,6 +223,7 @@ function settings(value = {}) {
     ...value,
   };
   if (
+    !["before-split", "after-split"].includes(result.additionTiming) ||
     typeof result.prefixText !== "string" ||
     typeof result.prefixNewline !== "boolean" ||
     typeof result.suffixText !== "string" ||
@@ -251,23 +253,36 @@ function createProcessor() {
       config = settings(value);
       cachedRevision = revision;
     }
-    const prefix = config.prefixText.trim()
-      ? config.prefixText + (config.prefixNewline ? "\n" : "")
-      : "";
-    const suffix = config.suffixText.trim()
-      ? (config.suffixNewline ? "\n" : "") + config.suffixText
-      : "";
-    const joined = prefix + text + suffix;
-    const replaced = config.dictionaryEnabled
-      ? replaceText(
-          joined,
-          preparedIndex ?? emptyIndex,
-          config.dictionaryIgnoreCase,
-        )
-      : { text: joined, ranges: [] };
-    const segments = config.splitEnabled
+    const addText = (
+      part,
+      prefix = config.prefixText,
+      suffix = config.suffixText,
+    ) =>
+      (config.prefixText.trim()
+        ? prefix + (config.prefixNewline ? "\n" : "")
+        : "") +
+      part +
+      (config.suffixText.trim()
+        ? (config.suffixNewline ? "\n" : "") + suffix
+        : "");
+    const convert = (value) =>
+      config.dictionaryEnabled
+        ? replaceText(
+            value,
+            preparedIndex ?? emptyIndex,
+            config.dictionaryIgnoreCase,
+          )
+        : { text: value, ranges: [] };
+    const afterSplit = config.additionTiming === "after-split";
+    const replaced = convert(afterSplit ? text : addText(text));
+    let segments = config.splitEnabled
       ? splitText(replaced.text, config.targetCharacters, replaced.ranges)
       : [replaced.text];
+    if (afterSplit) {
+      const prefix = convert(config.prefixText).text;
+      const suffix = convert(config.suffixText).text;
+      segments = segments.map((part) => addText(part, prefix, suffix));
+    }
     const startPolicy = {
       mode: config.startMode,
       ...(config.startMode === "count"
@@ -276,7 +291,11 @@ function createProcessor() {
           ? { seconds: config.startSeconds }
           : {}),
     };
-    return { text: replaced.text, segments, startPolicy };
+    return {
+      text: afterSplit ? segments.join("") : replaced.text,
+      segments,
+      startPolicy,
+    };
   };
 }
 module.exports = {

@@ -177,7 +177,13 @@ test("configured additions share the preview and MCP pipeline and can be cleared
   assert.deepEqual(
     manifest.settingSections.find((section) => section.id === "text-additions")
       .settings,
-    ["prefixText", "prefixNewline", "suffixText", "suffixNewline"],
+    [
+      "additionTiming",
+      "prefixText",
+      "prefixNewline",
+      "suffixText",
+      "suffixNewline",
+    ],
   );
   const reads = f.storage.reads.length;
   for (const [revision, [additions, expected]] of [
@@ -229,6 +235,73 @@ test("configured additions share the preview and MCP pipeline and can be cleared
   assert.equal(f.storage.reads.length, reads);
 });
 
+test("after-split additions agree across preview, MCP and audition without reloading the dictionary", async () => {
+  assert.equal(
+    manifest.settings.find((setting) => setting.key === "additionTiming")
+      .default,
+    "before-split",
+  );
+  assert(manifest.mcpToolModules[0].settingsKeys.includes("additionTiming"));
+  const f = fixture();
+  f.storage.data.set("shared/user.csv", "hello,ハロー\npython,パイソン");
+  await f.start();
+  const value = {
+    additionTiming: "after-split",
+    prefixText: "Hello!",
+    suffixText: "!Python",
+    prefixNewline: false,
+    suffixNewline: false,
+    targetCharacters: 2,
+  };
+  f.set(value);
+  const reads = f.storage.reads.length;
+  const input = { text: "一。二。三。", instructions: "quiet" };
+  const expected = [
+    "ハロー!一。!パイソン",
+    "ハロー!二。!パイソン",
+    "ハロー!三。!パイソン",
+  ];
+  const preview = await f.invoke("text.preview", { text: input.text });
+  assert.equal(preview.dialog.values.text, input.text);
+  assert.equal(preview.dialog.values.replaced, expected.join(""));
+  assert.equal(
+    preview.dialog.values.segments,
+    expected.map((part, i) => `${i + 1}. ${part}`).join("\n\n"),
+  );
+  assert.equal(
+    (await f.invoke("text.preview", preview.dialog.values)).dialog.values
+      .replaced,
+    expected.join(""),
+  );
+  await f.extension.onMcpTool(
+    {
+      moduleId: "at365.speak.read-aloud",
+      name: "appdock_speech_speak",
+      input,
+      settings: { revision: "after-split", storageScope: "shared", value },
+    },
+    f.signal,
+  );
+  assert.deepEqual(f.calls.at(-1), [
+    "tts.sequences.speak",
+    {
+      segments: expected,
+      startPolicy: { mode: "first" },
+      instructions: "quiet",
+    },
+  ]);
+  await f.invoke("audition.speak", { text: input.text, connectionId: "alice" });
+  assert.deepEqual(f.calls.at(-1), [
+    "tts.sequences.speak",
+    {
+      segments: expected,
+      startPolicy: { mode: "first" },
+      connectionId: "alice",
+    },
+  ]);
+  assert.deepEqual(input, { text: "一。二。三。", instructions: "quiet" });
+  assert.equal(f.storage.reads.length, reads);
+});
 test("dictionary conversion exposes a default-on case setting shared by preview and MCP without reloading files", async () => {
   const f = fixture();
   f.storage.data.set(

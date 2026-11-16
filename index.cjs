@@ -528,7 +528,8 @@ function createExtension() {
                 field("text", "読み上げる文章"),
                 {
                   ...field("replaced", "置換後の文章", true),
-                  description: "前後の文章を含めた辞書変換後の文章です。",
+                  description:
+                    "選んだタイミングで前後の文章を加えた、読み上げ全体の文章です。",
                 },
                 field("segments", `分割結果: ${plan.segments.length}個`, true),
                 field("start", "再生開始", true),
