@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "applet",
+  "id": "at365.speak",
+  "version": "0.9.0",
+  "minimumHostVersion": "0.249.6",
+  "release": {
+    "tag": "v0.9.0",
+    "publishedAt": "2026-11-16T22:31:30Z"
+  },
+  "payload": {
+    "file": "update.zip",
+    "sha256": "eb67e926066e7a1fce1ba05d9bb5cbfbdd94a7b7ddd949edb36af537dcc9dc72",
+    "size": 17364,
+    "format": "zip",
+    "url": "https://github.com/yukichi-7sai/Applet.Speak.at365/releases/download/v0.9.0/update.zip"
+  }
+}

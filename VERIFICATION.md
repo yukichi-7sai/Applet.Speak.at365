@@ -1,5 +1,11 @@
 # 検証記録
 
+## 2026-11-17 公開版索引とRelease（0.9.0）
+
+- 同版のソース・発行済みZIPの全収録ファイル、ID/版/最低本体版、サイズ/SHA256と標準単体回帰を確認。製品コード・版・配布物は変更せず、既存同版のReleaseは再作成しない。
+- 正式Releaseの匿名feed/ZIP取得とタグ固定元の実更新確認が成功。公開版索引を追加し、ZIP取得先を同じrepoの固定タグへ限定した。
+- 公開先は[v0.9.0](https://github.com/yukichi-7sai/Applet.Speak.at365/releases/tag/v0.9.0)。raw索引の確認と旧Release整理の実行結果は`.artifacts/release-repository-feed-20261117/receipt.json`と同フォルダーの整理結果へ保存する。
+
 ## 2026-11-16 前後文を分割前または各部分の分割後へ追加
 
 - 0.9.0、minimumHostVersion 0.249.6。通常設定`additionTiming`へ`before-split`（分割前に追加する、初期値）と`after-split`（分割後に各部分へ追加する）を追加した。前者は従来どおり全体へ1回ずつ追加して辞書変換・分割する。後者は本文を辞書変換・分割し、別に一度だけ変換した前後文を全ての部分へ付け、再分割しない。設定追加のためマイナー更新した。公開MCPの4入力/accepted応答、本文必須、本体/RelayのAPIとCSV形式は維持する。
