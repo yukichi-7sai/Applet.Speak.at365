@@ -1,5 +1,16 @@
 # 検証記録
 
+## 2026-11-17 指定した区切りのうち目安に最も近い位置で自動分割
+
+- 0.10.0、minimumHostVersion 0.249.6。`splitCharacters`（初期`。.`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）を通常設定・自動分割Section・MCP設定snapshotへ追加した。各部分の目安位置から前後で最も近い候補を選び、同距離は手前にする。文字種の優先順位と0.6〜1.4倍の探索範囲、任意の文中位置への分割を廃止し、候補なしは残り全文、残りが目安以下なら最後の1部分にする。読点は初期の対象に含めない。設定追加と意図した動作変更によりマイナー更新した。
+- 発行前に候補列挙と距離比較、閉じ括弧の付与、書記素/URL/小数/英単語/辞書範囲の保護、空白だけの部分を作らない全文保全、初期値、設定検証、共通processorとMCP設定キー、公開4入力/accepted応答・CSV/保存ファイル・本体APIへの非影響をレビューした。末尾に長い空白だけが残った場合を直前の部分へ保持し、対応する境界試験も追加。未解決の指摘なし。レビュー記録は`.artifacts/nearest-splitting-20261117/prepublish-review.json`。
+- 固定Node 26.13.1で単体43件とpublish内の同43件が成功。前後双方/探索距離制限なし/同距離/改行と句点の同順位、読点とスペースの既定除外、任意文字と絵文字の指定、改行とスペースの独立切替、全候補OFF、長い末尾空白、閉じ括弧/保護範囲、不正な設定を確認した。設定切替後のプレビュー/MCP/試聴は同じsegmentsで、Storage再読込なし。ログは同フォルダーの`unit.log`と`publish.log`。
+- 発行済みSpeakと固定AppDock 0.257.2・共通ランタイムによる辞書画面11群、本体結合11群が成功。新3項目の初期値・編集・保存・再起動復元、読点追加と同距離の手前選択、スペースON/OFF・改行のみ・全候補OFFのプレビューを確認した。既存の前後文追加/辞書/共有・PC専用、実MCPの4部分の生成順/受付時設定の保持、ローカル試聴も成功。画面profile=`.artifacts/dictionary-ui-1794900208368/`、結合profile=本体`.artifacts/applet-api-portable-1794900259599/`。実音声サービスの品質・物理出力は検証対象外。
+- コマンドは`test.bat`、`publish.bat`、本体の`dev.bat exec node ../Applet.Speak.at365/scripts/dictionary-ui-test.cjs <固定EXE> <発行Applet>`、`APPDOCK_TEST_SPEAK_APPLET=<発行Applet>`を指定した本体`dev.bat exec node scripts/applet-api-ui-test.cjs <固定EXE>`。固定EXE SHA-256=`e72a1b7fb0dd54d08bf8af71b2180bcaa7ac3bdef18ec9627af21af59ba4ed9f`。通常の本体コピーは作らず、結合fixtureのnative実行物は既存cleanupで回収した。依存検査は通常のWindowsユーザー環境で実行し、lockfile/固定ツールを維持した。
+- 共通ヘルパーで解決したローカル発行先のfeed/manifestのID・版・最低本体版、ZIP容量/SHA-256、全5項目の原本・展開済み発行物・ZIP・両固定試験入力を照合した。ZIP SHA-256=`9368b444e4eb1bcd7dc15b13a24da128a4fc06c6917eec16fba0195f7eb2e736`、容量17,663 bytes。証跡は`.artifacts/nearest-splitting-20261117/publication.json`、`fixed-ui.log`、`fixed-integration.log`。本体の変更は分割仕様文書だけで、製品コード・版・本体publishは変更しない。未変更の辞書エンジン/保存/依存の性能測定と本体全回帰は再実行しない。
+- プロセス終了・絶対パス・再解析ポイント不在を確認し、古い成功の画面1フォルダーと本体結合2フォルダーを整理した。各方式の直近3成功、失敗/不明分、共通ランタイム・固定build・発行物は保持し、今回のprofile参照プロセスは0。削除名/旧結果JSON/ハッシュは同フォルダーの`cleanup.json`へ保存した。コミット・push・外部公開・実利用先配置は行っていない。
+- コミット依頼時に製品5ファイル、テスト/fixture/補助スクリプト/固定ツール定義9ファイル、発行ZIP/feed、固定EXEと両試験入力のSHA-256を再照合し、すべて実装時の成功対象と一致した。後続の差分は文書・検証記録だけのため、単体43件・画面11群・MCP結合11群を再利用し、製品の再発行や無関係な回帰は行わない。今回の8ファイルと、本体側の関連文書2ファイルをそれぞれローカルコミット対象とする。照合結果・stage/commit treeは同フォルダーの`commit-validation.json`へ記録する。push・外部公開・実利用先配置は対象外。
+
 ## 2026-11-17 公開版索引とRelease（0.9.0）
 
 - 同版のソース・発行済みZIPの全収録ファイル、ID/版/最低本体版、サイズ/SHA256と標準単体回帰を確認。製品コード・版・配布物は変更せず、既存同版のReleaseは再作成しない。

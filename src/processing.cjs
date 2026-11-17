@@ -119,10 +119,24 @@ function replaceText(text, index, ignoreCase = false) {
   return index.replace(text, ignoreCase);
 }
 const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
-function splitText(text, target, protectedRanges = []) {
+function splitText(text, target, protectedRanges = [], options = {}) {
   if (!Number.isSafeInteger(target) || target < 1)
     throw new InputError("目安文字数には1以上の整数を指定してください。");
   if (!text.trim()) throw new InputError("読み上げる文章を入力してください。");
+  const {
+    splitCharacters = "。.",
+    splitOnNewline = true,
+    splitOnSpace = false,
+  } = options;
+  if (
+    typeof splitCharacters !== "string" ||
+    typeof splitOnNewline !== "boolean" ||
+    typeof splitOnSpace !== "boolean"
+  )
+    throw new InputError("分割する文字の設定を確認してください。");
+  const delimiters = new Set(
+    Array.from(graphemes.segment(splitCharacters), ({ segment }) => segment),
+  );
   const atomic = [...protectedRanges];
   for (const match of text.matchAll(
     /(?:https?:\/\/|www\.)\S+|[0-9]+(?:[.,][0-9]+)+|[A-Za-z0-9_]+(?:['’-][A-Za-z0-9_]+)*/g,
@@ -132,31 +146,28 @@ function splitText(text, target, protectedRanges = []) {
   const units = Array.from(graphemes.segment(text));
   const candidates = [];
   let rangeIndex = 0,
-    protectedUntil = 0;
+    protectedUntil = 0,
+    pendingBoundary = false,
+    lastContentN = 0;
   const closing = /[」』）)\]】〉》”’]/u;
   for (let n = 1; n <= units.length; n++) {
     const position = n === units.length ? text.length : units[n].index;
+    const previous = units[n - 1].segment;
+    if (previous.trim()) lastContentN = n;
+    pendingBoundary =
+      delimiters.has(previous) ||
+      (splitOnNewline && /[\r\n\u2028\u2029]/u.test(previous)) ||
+      (splitOnSpace && /^[\t\p{Zs}]+$/u.test(previous)) ||
+      (pendingBoundary && closing.test(previous));
     while (rangeIndex < atomic.length && atomic[rangeIndex].start < position)
       protectedUntil = Math.max(protectedUntil, atomic[rangeIndex++].end);
     if (
+      !pendingBoundary ||
       position < protectedUntil ||
       (n < units.length && closing.test(units[n].segment))
     )
       continue;
-    const previous = units[n - 1].segment,
-      next = units[n]?.segment ?? "";
-    let score = 0;
-    if (previous.includes("\n")) score = 5;
-    else if (
-      /[。！？!?]/u.test(previous) ||
-      (previous === "." &&
-        !(/[0-9]/.test(text[position - 2] ?? "") && /[0-9]/.test(next)))
-    )
-      score = 4;
-    else if (closing.test(previous)) score = 3;
-    else if (/[、，,;；:：]/u.test(previous)) score = 2;
-    else if (/\s/u.test(previous)) score = 1;
-    candidates.push({ n, position, score });
+    candidates.push({ n, position, lastContentN });
   }
   const chunks = [];
   let start = 0,
@@ -169,31 +180,28 @@ function splitText(text, target, protectedRanges = []) {
       else if (chunks.length) chunks[chunks.length - 1] += rest;
       break;
     }
-    const low = startN + target * 0.6,
-      high = startN + target * 1.4;
-    let best;
-    while (cursor < candidates.length && candidates[cursor].n <= startN)
+    const desired = startN + target;
+    while (
+      cursor < candidates.length &&
+      (candidates[cursor].n <= startN ||
+        candidates[cursor].lastContentN <= startN)
+    )
       cursor++;
-    let scan = cursor;
-    for (; scan < candidates.length; scan++) {
-      const candidate = candidates[scan];
-      if (candidate.n > high && best) break;
-      if (candidate.n < low) continue;
-      if (
-        !best ||
-        candidate.score > best.score ||
-        (candidate.score === best.score &&
-          Math.abs(candidate.n - startN - target) <
-            Math.abs(best.n - startN - target))
-      )
-        best = candidate;
-      if (candidate.n > high) break;
-    }
-    best ??= candidates.at(-1);
-    if (!best || best.position <= start) {
-      chunks.push(text.slice(start));
+    if (cursor === candidates.length) {
+      const rest = text.slice(start);
+      if (rest.trim()) chunks.push(rest);
+      else if (chunks.length) chunks[chunks.length - 1] += rest;
       break;
     }
+    while (
+      cursor + 1 < candidates.length &&
+      candidates[cursor + 1].n <= desired
+    )
+      cursor++;
+    let best = candidates[cursor];
+    const next = candidates[cursor + 1];
+    if (next && Math.abs(next.n - desired) < Math.abs(best.n - desired))
+      best = next;
     const part = text.slice(start, best.position);
     if (part.trim()) chunks.push(part);
     else if (chunks.length) chunks[chunks.length - 1] += part;
@@ -215,6 +223,9 @@ function settings(value = {}) {
     suffixNewline: true,
     splitEnabled: true,
     targetCharacters: 300,
+    splitCharacters: "。.",
+    splitOnNewline: true,
+    splitOnSpace: false,
     dictionaryEnabled: true,
     dictionaryIgnoreCase: true,
     startMode: "first",
@@ -236,6 +247,9 @@ function settings(value = {}) {
     !Number.isFinite(result.startSeconds) ||
     result.startSeconds < 0 ||
     typeof result.splitEnabled !== "boolean" ||
+    typeof result.splitCharacters !== "string" ||
+    typeof result.splitOnNewline !== "boolean" ||
+    typeof result.splitOnSpace !== "boolean" ||
     typeof result.dictionaryEnabled !== "boolean" ||
     typeof result.dictionaryIgnoreCase !== "boolean" ||
     !["first", "count", "all", "delay"].includes(result.startMode)
@@ -276,7 +290,7 @@ function createProcessor() {
     const afterSplit = config.additionTiming === "after-split";
     const replaced = convert(afterSplit ? text : addText(text));
     let segments = config.splitEnabled
-      ? splitText(replaced.text, config.targetCharacters, replaced.ranges)
+      ? splitText(replaced.text, config.targetCharacters, replaced.ranges, config)
       : [replaced.text];
     if (afterSplit) {
       const prefix = convert(config.prefixText).text;

@@ -302,6 +302,41 @@ test("after-split additions agree across preview, MCP and audition without reloa
   assert.deepEqual(input, { text: "一。二。三。", instructions: "quiet" });
   assert.equal(f.storage.reads.length, reads);
 });
+test("configured split boundaries agree across preview, MCP snapshots and audition after settings change", async () => {
+  const f = fixture();
+  await f.start();
+  const reads = f.storage.reads.length;
+  for (const key of ["splitCharacters", "splitOnNewline", "splitOnSpace"])
+    assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
+  const text = "一、二。\n三 四|五";
+  const cases = [
+    [{}, ["一、二。", "\n三 四|五"]],
+    [{ splitCharacters: "、|", splitOnNewline: false }, ["一、", "二。\n三 四|", "五"]],
+    [{ splitCharacters: "", splitOnNewline: false, splitOnSpace: true }, ["一、二。\n三 ", "四|五"]],
+    [{ splitCharacters: "", splitOnNewline: false }, [text]],
+  ];
+  for (const [revision, [patch, expected]] of cases.entries()) {
+    const value = { targetCharacters: 3, ...patch };
+    f.set(value);
+    const preview = await f.invoke("text.preview", { text });
+    assert.equal(preview.dialog.values.replaced, text);
+    assert.equal(
+      preview.dialog.values.segments,
+      expected.map((part, i) => `${i + 1}. ${part}`).join("\n\n"),
+    );
+    await f.extension.onMcpTool({
+      moduleId: "at365.speak.read-aloud",
+      name: "appdock_speech_speak",
+      input: { text },
+      settings: { revision: "split-" + revision, storageScope: "shared", value },
+    }, f.signal);
+    assert.deepEqual(f.calls.at(-1)[1].segments, expected);
+    await f.invoke("audition.speak", { text, connectionId: "alice" });
+    assert.deepEqual(f.calls.at(-1)[1].segments, expected);
+  }
+  assert.equal(f.storage.reads.length, reads);
+});
+
 test("dictionary conversion exposes a default-on case setting shared by preview and MCP without reloading files", async () => {
   const f = fixture();
   f.storage.data.set(

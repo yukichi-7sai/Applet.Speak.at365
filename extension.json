@@ -5,7 +5,7 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "minimumHostVersion": "0.249.6",
   "runtime": "node",
   "entry": "index.cjs",
@@ -71,7 +71,27 @@
       "integer": true,
       "step": 1,
       "default": 300,
-      "description": "段落や文末に合わせて区切るため、目安を超える場合があります。"
+      "description": "目安の前後で最も近い指定の区切りを選びます。同じ距離なら手前を選び、区切りがなければ途中で分割しません。"
+    },
+    {
+      "key": "splitCharacters",
+      "title": "分割に使う文字",
+      "type": "string",
+      "default": "。.",
+      "description": "入力した各文字の直後を分割候補にします。例：「。.!?」。読点「、」を使う場合は追加してください。空欄では改行・スペースの設定だけを使います。"
+    },
+    {
+      "key": "splitOnNewline",
+      "title": "改行を分割候補にする",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "splitOnSpace",
+      "title": "スペースを分割候補にする",
+      "type": "boolean",
+      "default": false,
+      "description": "半角・全角スペースなどの空白とタブを対象にします。英文の途中で区切られると、読み上げの抑揚やつながりが変わる場合があります。"
     },
     {
       "key": "startMode",
@@ -150,7 +170,13 @@
     {
       "id": "splitting",
       "title": "自動分割",
-      "settings": ["splitEnabled", "targetCharacters"]
+      "settings": [
+        "splitEnabled",
+        "targetCharacters",
+        "splitCharacters",
+        "splitOnNewline",
+        "splitOnSpace"
+      ]
     },
     {
       "id": "playback",
@@ -458,6 +484,9 @@
         "suffixNewline",
         "splitEnabled",
         "targetCharacters",
+        "splitCharacters",
+        "splitOnNewline",
+        "splitOnSpace",
         "startMode",
         "startCount",
         "startSeconds",

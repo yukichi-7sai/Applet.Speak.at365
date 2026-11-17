@@ -10,6 +10,8 @@
 
 「辞書変換」の`dictionaryIgnoreCase`は半角英字の照合方式を選ぶ通常設定で、初期true。同じ索引に元の表記と優先順位を持たせ、プレビュー/MCPの設定snapshotから選択する。切り替えで辞書ファイルを読まず、索引も再構築しない。
 
+自動分割は`splitCharacters`（初期`。.`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）で候補を指定する。`src/processing.cjs`で保護範囲と書記素境界を照合した候補を一度列挙し、各部分の目安位置から前後で最も近い候補を選ぶ。同距離は手前、閉じ括弧は指定文字の後ろへ含めてから距離を比較する。文字種のスコア・0.6〜1.4倍の探索範囲・任意位置へのフォールバックは使わない。候補がない場合は残り全文、残りが目安以下なら最後の1部分とし、空白だけの部分を作らず全文を保持する。設定は通常SettingsとMCPの`settingsKeys`へ含め、同じprocessorをプレビュー・試聴・MCPで共用する。
+
 前後の文章は通常の文字列設定`prefixText`/`suffixText`へ保存し、両方の初期値を空にする。境界の`prefixNewline`/`suffixNewline`はそれぞれ初期true。`additionTiming`は初期`before-split`で、非空の前後文を本文へ追加してから全体を辞書変換・分割する。`after-split`では本文を辞書変換・分割し、別に一度だけ変換した前後文を全ての部分へ付けて再分割しない。変換済み本文の再置換と境界をまたぐ辞書照合は行わない。どちらもON側にだけ改行1つを挿入し、入力そのものの空白・改行は保持する。プレビューの入力は元の本文を保持し、出力へ最終segmentsをつないだ全体を表示する。MCP入力の4項目と本体/RelayのAPIは変更せず、自己設定snapshotに追加タイミング・前後文・改行の選択を含める。
 
 設定タブと補助ボタンは[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。単語一覧・配布辞書一覧・優先順・編集ダイアログは本体の共通部品を使用する。通常設定と`helpers`へ辞書を複製しない。AppDock 0.249.0以降の[ファイルStorage](../AppDock.at365/docs/storage-files.md)を`configuration` scopeで使う。既存のSettings内の辞書は使用せず、移行を実装しない。

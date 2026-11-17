@@ -221,6 +221,43 @@ async function useShared() {
         exact: true,
       });
     assert.equal(await caseChoice().isChecked(), true);
+    const splitField = () => page.getByRole("textbox", { name: "分割に使う文字", exact: true });
+    const newlineChoice = () => page.getByRole("switch", { name: "改行を分割候補にする", exact: true });
+    const spaceChoice = () => page.getByRole("switch", { name: "スペースを分割候補にする", exact: true });
+    const saveSplit = async (name, value) => {
+      await page.getByLabel(name, { exact: true }).fill(value);
+      await page.keyboard.press("Enter");
+      await settleSettings(page);
+    };
+    assert.equal(await splitField().inputValue(), "。.");
+    assert.equal(await newlineChoice().isChecked(), true);
+    assert.equal(await spaceChoice().isChecked(), false);
+    await saveSplit("分割の目安文字数", "6");
+    await preview("あああ、いいい。う", "あああ、いいい。う", ["あああ、いいい。", "う"]);
+    await saveSplit("分割に使う文字", "、。");
+    await preview("あああ、いいい。う", "あああ、いいい。う", ["あああ、", "いいい。う"]);
+    await saveSplit("分割に使う文字", "|");
+    await newlineChoice().click();
+    await settleSettings(page);
+    await spaceChoice().click();
+    await settleSettings(page);
+    await host.close();
+    await open();
+    assert.equal(await splitField().inputValue(), "|");
+    assert.equal(await newlineChoice().isChecked(), false);
+    assert.equal(await spaceChoice().isChecked(), true);
+    await preview("one two|three", "one two|three", ["one ", "two|", "three"]);
+    await spaceChoice().click();
+    await settleSettings(page);
+    await preview("one two|three", "one two|three", ["one two|", "three"]);
+    await saveSplit("分割に使う文字", "");
+    await preview("あああ。\nいいい", "あああ。\nいいい", ["あああ。\nいいい"]);
+    await newlineChoice().click();
+    await settleSettings(page);
+    await preview("あああ\nいいい", "あああ\nいいい", ["あああ\n", "いいい"]);
+    await saveSplit("分割に使う文字", "。.");
+    await saveSplit("分割の目安文字数", "300");
+    checks.push("nearest configured boundaries, earlier ties, comma exclusion, independent newline/space choices and empty delimiter settings persist across restart with preview parity");
     await importFile(userInput);
     assert.equal(readUser(), userCsv);
     const words = () =>

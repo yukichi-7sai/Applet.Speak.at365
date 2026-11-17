@@ -138,6 +138,9 @@ test("processor applies replacement before splitting, uses exclusive policies an
   assert.deepEqual(disabled.startPolicy, { mode: "count", count: 2 });
   for (const patch of [
     { targetCharacters: 1.5 },
+    { splitCharacters: null },
+    { splitOnNewline: "true" },
+    { splitOnSpace: 1 },
     { startCount: 0 },
     { startSeconds: -1 },
     { startSeconds: Infinity },
@@ -151,6 +154,67 @@ test("processor applies replacement before splitting, uses exclusive policies an
     { additionTiming: null },
   ])
     assert.throws(() => settings(patch));
+});
+
+test("splitting picks the nearest specified boundary on either side without a search window or punctuation priority", () => {
+  const early = "ああ。", late = "い".repeat(20) + "。";
+  assert.deepEqual(splitText(early + late + "う", 10), [early, late, "う"]);
+  const long = "あ".repeat(30) + "。";
+  assert.deepEqual(splitText(long + "い", 10), [long, "い"]);
+  assert.deepEqual(splitText("あああ。いいい。う", 6), ["あああ。", "いいい。う"]);
+  assert.deepEqual(splitText("ああああ。いいいい\nうううう。", 8), [
+    "ああああ。いいいい\n", "うううう。",
+  ]);
+  assert.deepEqual(splitText("ああああ\nいいい。うううう。", 8), [
+    "ああああ\nいいい。", "うううう。",
+  ]);
+  assert.deepEqual(splitText("あああ、いいい。う", 4, [], { splitCharacters: "、。" }), [
+    "あああ、", "いいい。", "う",
+  ]);
+});
+
+test("default splitting excludes commas and spaces and never falls back to the middle of a sentence", () => {
+  assert.equal(settings().splitCharacters, "。.");
+  assert.equal(settings().splitOnNewline, true);
+  assert.equal(settings().splitOnSpace, false);
+  const first = "あ".repeat(9) + "、" + "い".repeat(20) + "。";
+  assert.deepEqual(splitText(first + "う", 10), [first, "う"]);
+  for (const text of ["英文の途中には、空白 や！感嘆符？括弧）もある", "one two three"])
+    assert.deepEqual(splitText(text, 4), [text]);
+  assert.deepEqual(splitText("Hello world. Next sentence.", 10), [
+    "Hello world.", " Next sentence.",
+  ]);
+});
+
+test("literal delimiters, newlines and spaces can be selected independently and all delimiters can be disabled", () => {
+  const text = "あ|い|う";
+  assert.deepEqual(splitText(text, 2, [], { splitCharacters: "|" }), ["あ|", "い|", "う"]);
+  assert.deepEqual(splitText(text, 2), [text]);
+  assert.deepEqual(splitText("あ\r\nい\nう\rえ\u2028お\u2029か", 2), [
+    "あ\r\n", "い\n", "う\r", "え\u2028", "お\u2029", "か",
+  ]);
+  assert.deepEqual(splitText("one two three", 4, [], { splitOnSpace: true }), [
+    "one ", "two ", "three",
+  ]);
+  assert.deepEqual(splitText("あ　い\tう", 2, [], { splitOnSpace: true }), ["あ　", "い\t", "う"]);
+  const disabled = { splitCharacters: "", splitOnNewline: false, splitOnSpace: false };
+  assert.deepEqual(splitText("あ。\nい. う", 2, [], disabled), ["あ。\nい. う"]);
+  assert.deepEqual(splitText("あ。\nい", 2, [], { ...disabled, splitOnNewline: true }), ["あ。\n", "い"]);
+});
+
+test("selected boundaries keep closing quotes, protected terms and whitespace without empty parts", () => {
+  assert.deepEqual(splitText("「一。」二。三", 3), ["「一。」", "二。三"]);
+  assert.deepEqual(splitText("あ、い。う。", 2, [{ start: 0, end: 4 }], { splitCharacters: "、。" }), [
+    "あ、い。", "う。",
+  ]);
+  const text = " \n\nあ。" + " \n".repeat(20);
+  const parts = splitText(text, 2, [], { splitOnSpace: true });
+  assert(parts.every((part) => part.trim()));
+  assert.equal(parts.join(""), text);
+  assert.deepEqual(splitText("あ。" + " ".repeat(1000), 2), ["あ。" + " ".repeat(1000)]);
+  assert.deepEqual(splitText("あ👨‍👩‍👧‍👦い。", 2, [], { splitCharacters: "👨‍👩‍👧‍👦" }), [
+    "あ👨‍👩‍👧‍👦", "い。",
+  ]);
 });
 
 test("configured text is joined before dictionary conversion and splitting without changing the caller input", () => {
