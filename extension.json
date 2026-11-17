@@ -4,9 +4,9 @@
   "name": "Applet.Speak.at365",
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
-  "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.12.1",
-  "minimumHostVersion": "0.259.0",
+  "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
+  "version": "0.13.0",
+  "minimumHostVersion": "0.260.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -166,7 +166,7 @@
   "settingSections": [
     {
       "id": "publication",
-      "title": "MCP公開",
+      "title": "基本設定",
       "mcpModules": ["at365.speak.read-aloud"]
     },
     {
@@ -489,7 +489,7 @@
     {
       "id": "at365.speak.read-aloud",
       "title": "読み上げツール",
-      "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。",
+      "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。接続先や声は[setting:tts]で設定できます。",
       "apiProfile": "speech",
       "responseMode": "accepted",
       "settingsKeys": [
