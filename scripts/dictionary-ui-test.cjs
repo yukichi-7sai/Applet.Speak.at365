@@ -237,7 +237,17 @@ async function useShared() {
     };
     const splitMode = () =>
       page.getByRole("combobox", { name: "分割方式", exact: true });
-    assert.equal(await splitMode().inputValue(), "characters");
+    assert.equal(await splitMode().inputValue(), "sentences");
+    assert.equal(await splitField().count(), 0);
+    assert.equal(await newlineChoice().count(), 0);
+    assert.equal(await spaceChoice().count(), 0);
+    await saveSplit("分割の目安文字数", "6");
+    await preview("一、二。\n三 四|五", "一、二。\n三 四|五", [
+      "一、二。\n",
+      "三 四|五",
+    ]);
+    await splitMode().selectOption("characters");
+    await settleSettings(page);
     assert.equal(await splitField().inputValue(), ".!?。！？．｡");
     assert.equal(await newlineChoice().isChecked(), true);
     assert.equal(await spaceChoice().isChecked(), false);

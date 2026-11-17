@@ -12,7 +12,7 @@
 
 「辞書変換」の`dictionaryIgnoreCase`は半角英字の照合方式を選ぶ通常設定で、初期true。同じ索引に元の表記と優先順位を持たせ、プレビュー/MCPの設定snapshotから選択する。切り替えで辞書ファイルを読まず、索引も再構築しない。
 
-自動分割は`splitMode`で`characters`（初期）または`sentences`を選ぶ。指定文字方式は`splitCharacters`（初期`.!?。！？．｡`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）で候補を指定する。連続する指定文字は末尾だけを候補にし、後続の閉じ括弧も含める。読点とリーダーは既定に含めない。文単位方式は常駐する`Intl.Segmenter("ja", { granularity: "sentence" })`が返す文の末尾を候補にし、指定文字・改行・スペースの設定を使わない。この3項目は`visibleWhen`で指定文字方式だけに表示し、切り替えても値を保持する。外部ライブラリは追加しない。
+自動分割は`splitMode`で`characters`または`sentences`（初期）を選ぶ。指定文字方式は`splitCharacters`（初期`.!?。！？．｡`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）で候補を指定する。連続する指定文字は末尾だけを候補にし、後続の閉じ括弧も含める。読点とリーダーは既定に含めない。文単位方式は常駐する`Intl.Segmenter("ja", { granularity: "sentence" })`が返す文の末尾を候補にし、指定文字・改行・スペースの設定を使わない。この3項目は`visibleWhen`で指定文字方式だけに表示し、切り替えても値を保持する。外部ライブラリは追加しない。
 
 両方式とも`src/processing.cjs`で保護範囲と書記素境界を照合した候補を一度列挙し、各部分の目安位置から前後で最も近い候補を選ぶ。同距離は手前。文字種のスコア・探索距離の制限・任意位置へのフォールバックは使わない。候補がない場合は残り全文、残りが目安以下なら最後の1部分とし、空白だけの部分を作らず全文を保持する。文単位の空白・改行・閉じ括弧の所属はIntlの結果に従い、文末の完全な意味理解を保証しない。設定は通常SettingsとMCPの`settingsKeys`へ含め、同じprocessorをプレビュー・試聴・MCPで共用する。
 

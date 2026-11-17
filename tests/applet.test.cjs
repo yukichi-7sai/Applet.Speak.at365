@@ -316,16 +316,29 @@ test("configured split boundaries agree across preview, MCP snapshots and auditi
     assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
   const text = "一、二。\n三 四|五";
   const cases = [
-    [{}, ["一、二。", "\n三 四|五"]],
+    [{}, ["一、二。\n", "三 四|五"]],
+    [{ splitMode: "characters" }, ["一、二。", "\n三 四|五"]],
     [
-      { splitCharacters: "、|", splitOnNewline: false },
+      {
+        splitMode: "characters",
+        splitCharacters: "、|",
+        splitOnNewline: false,
+      },
       ["一、", "二。\n三 四|", "五"],
     ],
     [
-      { splitCharacters: "", splitOnNewline: false, splitOnSpace: true },
+      {
+        splitMode: "characters",
+        splitCharacters: "",
+        splitOnNewline: false,
+        splitOnSpace: true,
+      },
       ["一、二。\n三 ", "四|五"],
     ],
-    [{ splitCharacters: "", splitOnNewline: false }, [text]],
+    [
+      { splitMode: "characters", splitCharacters: "", splitOnNewline: false },
+      [text],
+    ],
     [
       { splitMode: "sentences", splitCharacters: "、|", splitOnSpace: true },
       ["一、二。\n", "三 四|五"],

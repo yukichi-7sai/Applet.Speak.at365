@@ -125,7 +125,7 @@ function splitText(text, target, protectedRanges = [], options = {}) {
     throw new InputError("目安文字数には1以上の整数を指定してください。");
   if (!text.trim()) throw new InputError("読み上げる文章を入力してください。");
   const {
-    splitMode = "characters",
+    splitMode = "sentences",
     splitCharacters = ".!?。！？．｡",
     splitOnNewline = true,
     splitOnSpace = false,
@@ -238,7 +238,7 @@ function settings(value = {}) {
     suffixText: "",
     suffixNewline: true,
     splitEnabled: true,
-    splitMode: "characters",
+    splitMode: "sentences",
     targetCharacters: 300,
     splitCharacters: ".!?。！？．｡",
     splitOnNewline: true,
