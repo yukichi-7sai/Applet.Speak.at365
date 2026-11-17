@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.10.0",
-  "minimumHostVersion": "0.249.6",
+  "version": "0.11.0",
+  "minimumHostVersion": "0.258.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -476,6 +476,7 @@
       "title": "読み上げツール",
       "description": "Speakのユーザー辞書・文章分割・再生開始設定を使って読み上げます。",
       "apiProfile": "speech",
+      "responseMode": "accepted",
       "settingsKeys": [
         "additionTiming",
         "prefixText",
@@ -497,7 +498,7 @@
         {
           "name": "appdock_speech_speak",
           "title": "Speak: 文章を読み上げる",
-          "description": "文章を指定した接続で読み上げます。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。",
+          "description": "文章を受信すると、辞書変換・文章分割・読み上げキュー登録を待たずに受信結果を返します。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。応答後は次の作業へ進んでください。",
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,

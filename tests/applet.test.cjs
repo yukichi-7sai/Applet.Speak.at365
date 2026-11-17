@@ -124,7 +124,8 @@ test("one MCP tool accepts four public fields and uses the resident CSV dictiona
     },
   ]);
 });
-test("MCP receipt waits for host acceptance without waiting for generation", async () => {
+test("background Applet handler waits for internal host acceptance while its MCP module opts into receive-only responses", async () => {
+  assert.equal(manifest.mcpToolModules[0].responseMode, "accepted");
   const f = fixture();
   await f.start();
   let accept;
