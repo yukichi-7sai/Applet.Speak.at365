@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "音声生成AIを使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.11.0",
-  "minimumHostVersion": "0.258.0",
+  "version": "0.12.0",
+  "minimumHostVersion": "0.259.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -64,6 +64,17 @@
       "default": true
     },
     {
+      "key": "splitMode",
+      "title": "分割方式",
+      "type": "select",
+      "default": "characters",
+      "options": [
+        { "label": "指定した文字で分割", "value": "characters" },
+        { "label": "文単位で分割", "value": "sentences" }
+      ],
+      "description": "文単位では文章から文の区切りを判定します。どちらも目安文字数に近い区切りを選びます。"
+    },
+    {
       "key": "targetCharacters",
       "title": "分割の目安文字数",
       "type": "number",
@@ -77,17 +88,20 @@
       "key": "splitCharacters",
       "title": "分割に使う文字",
       "type": "string",
-      "default": "。.",
-      "description": "入力した各文字の直後を分割候補にします。例：「。.!?」。読点「、」を使う場合は追加してください。空欄では改行・スペースの設定だけを使います。"
+      "default": ".!?。！？．｡",
+      "visibleWhen": { "key": "splitMode", "equals": "characters" },
+      "description": "入力した各文字の直後を候補にします。連続する区切り文字は末尾でまとめて区切ります。読点やリーダーは必要な場合だけ追加してください。空欄では改行・スペースの設定だけを使います。"
     },
     {
       "key": "splitOnNewline",
+      "visibleWhen": { "key": "splitMode", "equals": "characters" },
       "title": "改行を分割候補にする",
       "type": "boolean",
       "default": true
     },
     {
       "key": "splitOnSpace",
+      "visibleWhen": { "key": "splitMode", "equals": "characters" },
       "title": "スペースを分割候補にする",
       "type": "boolean",
       "default": false,
@@ -172,6 +186,7 @@
       "title": "自動分割",
       "settings": [
         "splitEnabled",
+        "splitMode",
         "targetCharacters",
         "splitCharacters",
         "splitOnNewline",
@@ -484,6 +499,7 @@
         "suffixText",
         "suffixNewline",
         "splitEnabled",
+        "splitMode",
         "targetCharacters",
         "splitCharacters",
         "splitOnNewline",

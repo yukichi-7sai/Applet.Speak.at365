@@ -2,7 +2,7 @@
 
 ユーザー辞書は全行を共通providerテーブルへ返し、ページ状態と前後ページactionを持たない。本体の共通仮想表示と全件検索を利用する。ユーザー辞書の「表示範囲」と配布辞書の「辞書の優先順」パネルを置かず、配布順序はテーブルの列と並べ替え操作で示す。CSV形式・行ID・照合の優先順位は保持する。
 
-MCPモジュールに`responseMode: "accepted"`を宣言し、最低ホスト版を0.258.0にする。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
+最低ホスト版は0.259.0。通常設定の表示条件`visibleWhen`を利用する。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
 
 [AppDock共通指示](../AppDock.at365/AGENTS.md)、[Applet API](../AppDock.at365/docs/extensions.md)、[読み上げ設計](../AppDock.at365/docs/speech-applet-design.md)、[共通固定ランタイム](../AppDock.at365/docs/test-runtime.md)を正本とする。
 
@@ -12,7 +12,9 @@ MCPモジュールに`responseMode: "accepted"`を宣言し、最低ホスト版
 
 「辞書変換」の`dictionaryIgnoreCase`は半角英字の照合方式を選ぶ通常設定で、初期true。同じ索引に元の表記と優先順位を持たせ、プレビュー/MCPの設定snapshotから選択する。切り替えで辞書ファイルを読まず、索引も再構築しない。
 
-自動分割は`splitCharacters`（初期`。.`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）で候補を指定する。`src/processing.cjs`で保護範囲と書記素境界を照合した候補を一度列挙し、各部分の目安位置から前後で最も近い候補を選ぶ。同距離は手前、閉じ括弧は指定文字の後ろへ含めてから距離を比較する。文字種のスコア・0.6〜1.4倍の探索範囲・任意位置へのフォールバックは使わない。候補がない場合は残り全文、残りが目安以下なら最後の1部分とし、空白だけの部分を作らず全文を保持する。設定は通常SettingsとMCPの`settingsKeys`へ含め、同じprocessorをプレビュー・試聴・MCPで共用する。
+自動分割は`splitMode`で`characters`（初期）または`sentences`を選ぶ。指定文字方式は`splitCharacters`（初期`.!?。！？．｡`）、`splitOnNewline`（初期true）、`splitOnSpace`（初期false）で候補を指定する。連続する指定文字は末尾だけを候補にし、後続の閉じ括弧も含める。読点とリーダーは既定に含めない。文単位方式は常駐する`Intl.Segmenter("ja", { granularity: "sentence" })`が返す文の末尾を候補にし、指定文字・改行・スペースの設定を使わない。この3項目は`visibleWhen`で指定文字方式だけに表示し、切り替えても値を保持する。外部ライブラリは追加しない。
+
+両方式とも`src/processing.cjs`で保護範囲と書記素境界を照合した候補を一度列挙し、各部分の目安位置から前後で最も近い候補を選ぶ。同距離は手前。文字種のスコア・探索距離の制限・任意位置へのフォールバックは使わない。候補がない場合は残り全文、残りが目安以下なら最後の1部分とし、空白だけの部分を作らず全文を保持する。文単位の空白・改行・閉じ括弧の所属はIntlの結果に従い、文末の完全な意味理解を保証しない。設定は通常SettingsとMCPの`settingsKeys`へ含め、同じprocessorをプレビュー・試聴・MCPで共用する。
 
 前後の文章は通常の文字列設定`prefixText`/`suffixText`へ保存し、両方の初期値を空にする。境界の`prefixNewline`/`suffixNewline`はそれぞれ初期true。`additionTiming`は初期`before-split`で、非空の前後文を本文へ追加してから全体を辞書変換・分割する。`after-split`では本文を辞書変換・分割し、別に一度だけ変換した前後文を全ての部分へ付けて再分割しない。変換済み本文の再置換と境界をまたぐ辞書照合は行わない。どちらもON側にだけ改行1つを挿入し、入力そのものの空白・改行は保持する。プレビューの入力は元の本文を保持し、出力へ最終segmentsをつないだ全体を表示する。MCP入力の4項目と本体/RelayのAPIは変更せず、自己設定snapshotに追加タイミング・前後文・改行の選択を含める。
 

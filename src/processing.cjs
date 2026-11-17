@@ -119,16 +119,19 @@ function replaceText(text, index, ignoreCase = false) {
   return index.replace(text, ignoreCase);
 }
 const graphemes = new Intl.Segmenter("ja", { granularity: "grapheme" });
+const sentences = new Intl.Segmenter("ja", { granularity: "sentence" });
 function splitText(text, target, protectedRanges = [], options = {}) {
   if (!Number.isSafeInteger(target) || target < 1)
     throw new InputError("目安文字数には1以上の整数を指定してください。");
   if (!text.trim()) throw new InputError("読み上げる文章を入力してください。");
   const {
-    splitCharacters = "。.",
+    splitMode = "characters",
+    splitCharacters = ".!?。！？．｡",
     splitOnNewline = true,
     splitOnSpace = false,
   } = options;
   if (
+    !["characters", "sentences"].includes(splitMode) ||
     typeof splitCharacters !== "string" ||
     typeof splitOnNewline !== "boolean" ||
     typeof splitOnSpace !== "boolean"
@@ -139,32 +142,45 @@ function splitText(text, target, protectedRanges = [], options = {}) {
   );
   const atomic = [...protectedRanges];
   for (const match of text.matchAll(
-    /(?:https?:\/\/|www\.)\S+|[0-9]+(?:[.,][0-9]+)+|[A-Za-z0-9_]+(?:['’-][A-Za-z0-9_]+)*/g,
+    /(?:https?:\/\/|www\.)\S+|[0-9０-９]+(?:[.,．，][0-9０-９]+)+|[A-Za-z0-9_]+(?:['’-][A-Za-z0-9_]+)*/g,
   ))
     atomic.push({ start: match.index, end: match.index + match[0].length });
   atomic.sort((a, b) => a.start - b.start || b.end - a.end);
   const units = Array.from(graphemes.segment(text));
+  const sentenceEnds =
+    splitMode === "sentences"
+      ? new Set(
+          Array.from(
+            sentences.segment(text),
+            ({ index, segment }) => index + segment.length,
+          ),
+        )
+      : undefined;
   const candidates = [];
   let rangeIndex = 0,
     protectedUntil = 0,
     pendingBoundary = false,
     lastContentN = 0;
   const closing = /[」』）)\]】〉》”’]/u;
+  const isDelimiter = (unit) =>
+    delimiters.has(unit) ||
+    (splitOnNewline && /[\r\n\u2028\u2029]/u.test(unit)) ||
+    (splitOnSpace && /^[\t\p{Zs}]+$/u.test(unit));
   for (let n = 1; n <= units.length; n++) {
     const position = n === units.length ? text.length : units[n].index;
     const previous = units[n - 1].segment;
     if (previous.trim()) lastContentN = n;
-    pendingBoundary =
-      delimiters.has(previous) ||
-      (splitOnNewline && /[\r\n\u2028\u2029]/u.test(previous)) ||
-      (splitOnSpace && /^[\t\p{Zs}]+$/u.test(previous)) ||
-      (pendingBoundary && closing.test(previous));
+    pendingBoundary = sentenceEnds
+      ? sentenceEnds.has(position)
+      : isDelimiter(previous) || (pendingBoundary && closing.test(previous));
     while (rangeIndex < atomic.length && atomic[rangeIndex].start < position)
       protectedUntil = Math.max(protectedUntil, atomic[rangeIndex++].end);
     if (
       !pendingBoundary ||
       position < protectedUntil ||
-      (n < units.length && closing.test(units[n].segment))
+      (!sentenceEnds &&
+        n < units.length &&
+        (closing.test(units[n].segment) || delimiters.has(units[n].segment)))
     )
       continue;
     candidates.push({ n, position, lastContentN });
@@ -222,8 +238,9 @@ function settings(value = {}) {
     suffixText: "",
     suffixNewline: true,
     splitEnabled: true,
+    splitMode: "characters",
     targetCharacters: 300,
-    splitCharacters: "。.",
+    splitCharacters: ".!?。！？．｡",
     splitOnNewline: true,
     splitOnSpace: false,
     dictionaryEnabled: true,
@@ -247,6 +264,7 @@ function settings(value = {}) {
     !Number.isFinite(result.startSeconds) ||
     result.startSeconds < 0 ||
     typeof result.splitEnabled !== "boolean" ||
+    !["characters", "sentences"].includes(result.splitMode) ||
     typeof result.splitCharacters !== "string" ||
     typeof result.splitOnNewline !== "boolean" ||
     typeof result.splitOnSpace !== "boolean" ||
@@ -290,7 +308,12 @@ function createProcessor() {
     const afterSplit = config.additionTiming === "after-split";
     const replaced = convert(afterSplit ? text : addText(text));
     let segments = config.splitEnabled
-      ? splitText(replaced.text, config.targetCharacters, replaced.ranges, config)
+      ? splitText(
+          replaced.text,
+          config.targetCharacters,
+          replaced.ranges,
+          config,
+        )
       : [replaced.text];
     if (afterSplit) {
       const prefix = convert(config.prefixText).text;

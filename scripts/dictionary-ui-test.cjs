@@ -221,31 +221,91 @@ async function useShared() {
         exact: true,
       });
     assert.equal(await caseChoice().isChecked(), true);
-    const splitField = () => page.getByRole("textbox", { name: "分割に使う文字", exact: true });
-    const newlineChoice = () => page.getByRole("switch", { name: "改行を分割候補にする", exact: true });
-    const spaceChoice = () => page.getByRole("switch", { name: "スペースを分割候補にする", exact: true });
+    const splitField = () =>
+      page.getByRole("textbox", { name: "分割に使う文字", exact: true });
+    const newlineChoice = () =>
+      page.getByRole("switch", { name: "改行を分割候補にする", exact: true });
+    const spaceChoice = () =>
+      page.getByRole("switch", {
+        name: "スペースを分割候補にする",
+        exact: true,
+      });
     const saveSplit = async (name, value) => {
       await page.getByLabel(name, { exact: true }).fill(value);
       await page.keyboard.press("Enter");
       await settleSettings(page);
     };
-    assert.equal(await splitField().inputValue(), "。.");
+    const splitMode = () =>
+      page.getByRole("combobox", { name: "分割方式", exact: true });
+    assert.equal(await splitMode().inputValue(), "characters");
+    assert.equal(await splitField().inputValue(), ".!?。！？．｡");
     assert.equal(await newlineChoice().isChecked(), true);
     assert.equal(await spaceChoice().isChecked(), false);
     await saveSplit("分割の目安文字数", "6");
-    await preview("あああ、いいい。う", "あああ、いいい。う", ["あああ、いいい。", "う"]);
+    await preview("本当！？そうなんだ。", "本当！？そうなんだ。", [
+      "本当！？",
+      "そうなんだ。",
+    ]);
+    await preview("あああ、いいい。う", "あああ、いいい。う", [
+      "あああ、いいい。",
+      "う",
+    ]);
     await saveSplit("分割に使う文字", "、。");
-    await preview("あああ、いいい。う", "あああ、いいい。う", ["あああ、", "いいい。う"]);
+    await preview("あああ、いいい。う", "あああ、いいい。う", [
+      "あああ、",
+      "いいい。う",
+    ]);
     await saveSplit("分割に使う文字", "|");
     await newlineChoice().click();
     await settleSettings(page);
     await spaceChoice().click();
     await settleSettings(page);
+    await splitMode().focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Tab");
+    await settleSettings(page);
+    assert.equal(await splitMode().inputValue(), "sentences");
+    assert.equal(await splitField().count(), 0);
+    assert.equal(await newlineChoice().count(), 0);
+    assert.equal(await spaceChoice().count(), 0);
+    assert.equal(
+      await page.getByLabel("分割の目安文字数", { exact: true }).inputValue(),
+      "6",
+    );
+    await preview("一、二。\n三 四|五", "一、二。\n三 四|五", [
+      "一、二。\n",
+      "三 四|五",
+    ]);
+    await splitMode().scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(profile, "splitting-sentences.png"),
+    });
     await host.close();
     await open();
+    assert.equal(await splitMode().inputValue(), "sentences");
+    assert.equal(await splitField().count(), 0);
+    const settingsSearch = page.getByRole("combobox", {
+      name: "設定を検索",
+      exact: true,
+    });
+    await settingsSearch.fill("分割に使う文字");
+    await page.getByRole("option", { name: /分割に使う文字/ }).click();
+    await page
+      .locator(
+        '[data-setting-item="applet%3Aat365.speak/setting%3AsplitMode"].setting-highlight',
+      )
+      .waitFor();
+    await settingsSearch.fill("");
+    assert.equal(await splitMode().inputValue(), "sentences");
+    await splitMode().selectOption("characters");
+    await settleSettings(page);
     assert.equal(await splitField().inputValue(), "|");
     assert.equal(await newlineChoice().isChecked(), false);
     assert.equal(await spaceChoice().isChecked(), true);
+    await splitMode().scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(profile, "splitting-characters.png"),
+    });
     await preview("one two|three", "one two|three", ["one ", "two|", "three"]);
     await spaceChoice().click();
     await settleSettings(page);
@@ -255,9 +315,14 @@ async function useShared() {
     await newlineChoice().click();
     await settleSettings(page);
     await preview("あああ\nいいい", "あああ\nいいい", ["あああ\n", "いいい"]);
-    await saveSplit("分割に使う文字", "。.");
+    await saveSplit("分割に使う文字", ".!?。！？．｡");
     await saveSplit("分割の目安文字数", "300");
-    checks.push("nearest configured boundaries, earlier ties, comma exclusion, independent newline/space choices and empty delimiter settings persist across restart with preview parity");
+    checks.push(
+      "nearest configured boundaries, earlier ties, comma exclusion, independent newline/space choices and empty delimiter settings persist across restart with preview parity",
+    );
+    checks.push(
+      "sentence mode, grouped punctuation, keyboard selection, hidden field search redirection and retained delimiter values survive restart",
+    );
     await importFile(userInput);
     assert.equal(readUser(), userCsv);
     const words = () =>

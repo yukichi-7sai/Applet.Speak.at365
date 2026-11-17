@@ -307,14 +307,29 @@ test("configured split boundaries agree across preview, MCP snapshots and auditi
   const f = fixture();
   await f.start();
   const reads = f.storage.reads.length;
-  for (const key of ["splitCharacters", "splitOnNewline", "splitOnSpace"])
+  for (const key of [
+    "splitMode",
+    "splitCharacters",
+    "splitOnNewline",
+    "splitOnSpace",
+  ])
     assert(manifest.mcpToolModules[0].settingsKeys.includes(key));
   const text = "一、二。\n三 四|五";
   const cases = [
     [{}, ["一、二。", "\n三 四|五"]],
-    [{ splitCharacters: "、|", splitOnNewline: false }, ["一、", "二。\n三 四|", "五"]],
-    [{ splitCharacters: "", splitOnNewline: false, splitOnSpace: true }, ["一、二。\n三 ", "四|五"]],
+    [
+      { splitCharacters: "、|", splitOnNewline: false },
+      ["一、", "二。\n三 四|", "五"],
+    ],
+    [
+      { splitCharacters: "", splitOnNewline: false, splitOnSpace: true },
+      ["一、二。\n三 ", "四|五"],
+    ],
     [{ splitCharacters: "", splitOnNewline: false }, [text]],
+    [
+      { splitMode: "sentences", splitCharacters: "、|", splitOnSpace: true },
+      ["一、二。\n", "三 四|五"],
+    ],
   ];
   for (const [revision, [patch, expected]] of cases.entries()) {
     const value = { targetCharacters: 3, ...patch };
@@ -325,12 +340,19 @@ test("configured split boundaries agree across preview, MCP snapshots and auditi
       preview.dialog.values.segments,
       expected.map((part, i) => `${i + 1}. ${part}`).join("\n\n"),
     );
-    await f.extension.onMcpTool({
-      moduleId: "at365.speak.read-aloud",
-      name: "appdock_speech_speak",
-      input: { text },
-      settings: { revision: "split-" + revision, storageScope: "shared", value },
-    }, f.signal);
+    await f.extension.onMcpTool(
+      {
+        moduleId: "at365.speak.read-aloud",
+        name: "appdock_speech_speak",
+        input: { text },
+        settings: {
+          revision: "split-" + revision,
+          storageScope: "shared",
+          value,
+        },
+      },
+      f.signal,
+    );
     assert.deepEqual(f.calls.at(-1)[1].segments, expected);
     await f.invoke("audition.speak", { text, connectionId: "alice" });
     assert.deepEqual(f.calls.at(-1)[1].segments, expected);
