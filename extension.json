@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.15.0",
-  "minimumHostVersion": "0.266.0",
+  "version": "0.16.0",
+  "minimumHostVersion": "0.267.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [

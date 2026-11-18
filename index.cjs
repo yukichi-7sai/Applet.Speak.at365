@@ -281,31 +281,33 @@ function createExtension() {
       try {
         switch (request.method) {
           case "snapshot": {
-            const warning = dictionaries.error
-              ? [
-                  {
-                    id: "dictionary-error",
-                    title: "辞書の読み込み",
-                    description: `${dictionaries.error.message} 保存先のCSVとcatalog.jsonを確認し、再読み込みしてください。直前の正常な辞書があれば保持しています。`,
-                    actions: [{ id: "dictionary.reload", title: "再読み込み" }],
-                  },
-                ]
-              : [];
+            const reloadAction = {
+              id: "dictionary.reload",
+              title: "再読み込み",
+            };
+            const warning = dictionaries.error && {
+              title: "辞書を読み込めません",
+              warning: `${dictionaries.error.message} 保存先のCSVとcatalog.jsonを確認し、再読み込みしてください。直前の正常な辞書があれば保持しています。`,
+              action: reloadAction,
+            };
             return {
               revision: rev,
               available: true,
               tabs: [
                 {
                   id: "settings",
-                  panels: warning,
+                  panels: [],
                   toolbar: [
+                    ...(warning ? [warning] : []),
                     { id: "text.open", title: "文章プレビュー" },
                     { id: "audition.open", title: "試聴" },
                   ],
                 },
                 {
                   id: "user-dictionary",
-                  panels: [...warning, ...(state ? userPanels(state) : [])],
+                  panels: state
+                    ? userPanels(state)
+                    : [{ id: "user-words", title: "ユーザー辞書" }],
                   toolbar: state
                     ? [
                         {
@@ -319,14 +321,16 @@ function createExtension() {
                           ],
                         },
                         { id: "csv.export", title: "書き出し" },
-                        { id: "dictionary.reload", title: "再読み込み" },
+                        warning || reloadAction,
                       ]
-                    : [],
+                    : [warning || reloadAction],
                 },
                 {
                   id: "source-dictionaries",
-                  panels: [...warning, ...(state ? sourcePanels(state) : [])],
-                  toolbar: [{ id: "dictionary.reload", title: "再読み込み" }],
+                  panels: state
+                    ? sourcePanels(state)
+                    : [{ id: "source-dictionaries", title: "配布辞書" }],
+                  toolbar: [warning || reloadAction],
                 },
               ],
             };

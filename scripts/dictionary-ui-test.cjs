@@ -208,14 +208,12 @@ async function checkDictionaryLayout() {
         compact ? "speak-info-narrow.png" : "speak-info-wide.png",
       ),
     });
-    await top
-      .getByTestId("provider-settings-tabs")
-      .screenshot({
-        path: path.join(
-          profile,
-          compact ? "speak-tabs-narrow.png" : "speak-tabs-wide.png",
-        ),
-      });
+    await top.getByTestId("provider-settings-tabs").screenshot({
+      path: path.join(
+        profile,
+        compact ? "speak-tabs-narrow.png" : "speak-tabs-wide.png",
+      ),
+    });
     const title = await heading.getByRole("heading").boundingBox();
     const first = await actions.first().boundingBox();
     assert(
@@ -282,6 +280,13 @@ async function checkDictionaryLayout() {
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
       ),
   );
+  await until(async () => {
+    const labels = infoActions.locator(".adaptive-toolbar-label:visible");
+    return (
+      (await labels.count()) === 1 &&
+      (await labels.first().textContent()) === "このAppletを更新"
+    );
+  }, "only the update label remains at intermediate width");
   await info.screenshot({ path: path.join(profile, "speak-info-medium.png") });
   await resizeSettings(1500);
   await tab("source-dictionaries");
@@ -307,6 +312,15 @@ async function checkDictionaryLayout() {
   assert.equal(
     await top.getByRole("button", { name: "試聴", exact: true }).count(),
     0,
+  );
+  assert(
+    Math.abs(
+      await basic.evaluate(
+        (el) =>
+          el.getBoundingClientRect().top -
+          el.closest(".settings-form").getBoundingClientRect().top,
+      ),
+    ) < 1,
   );
   checks.push(
     "all four tabs have icons and section actions, JSON stays editable, and the information panel adapts its actions, description and command count at wide and compact widths",
@@ -399,7 +413,46 @@ async function useShared() {
 }
 (async () => {
   try {
+    fs.mkdirSync(shared, { recursive: true });
+    fs.writeFileSync(path.join(shared, "user.csv"), "invalid,three,columns");
     await open();
+    await tab("user-dictionary");
+    await resizeSettings(760);
+    const initialHeading = page
+      .getByRole("region", { name: "ユーザー辞書", exact: true })
+      .locator("header");
+    const initialWarning = initialHeading.getByRole("button", {
+      name: "辞書を読み込めません",
+    });
+    const initialDetails = page.getByRole("dialog", {
+      name: "辞書を読み込めません",
+    });
+    await initialWarning.click();
+    await initialDetails.getByRole("button", { name: "再読み込み" }).waitFor();
+    assert(
+      await initialDetails.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return (
+          rect.left >= 0 &&
+          rect.right <= innerWidth + 1 &&
+          rect.top >= 0 &&
+          rect.bottom <= innerHeight + 1
+        );
+      }),
+      "recovery popover fits in the narrow viewport",
+    );
+    await initialHeading.getByRole("heading").click();
+    await initialDetails.waitFor({ state: "hidden" });
+    await initialWarning.click();
+    fs.writeFileSync(path.join(shared, "user.csv"), "");
+    await initialDetails.getByRole("button", { name: "再読み込み" }).click();
+    await initialWarning.waitFor({ state: "detached" });
+    await page
+      .getByRole("table", { name: "ユーザー辞書", exact: true })
+      .waitFor();
+    checks.push(
+      "a first-launch dictionary failure shows details in its heading, dismisses on outside click and recovers from the same control",
+    );
     await checkDictionaryLayout();
     await page
       .getByRole("heading", { name: "前後の文章", exact: true })
@@ -587,11 +640,18 @@ async function useShared() {
     );
     assert.equal(metrics.header, "rgba(0, 0, 0, 0)");
     assert(
-      metrics.weight >= 600 &&
-        metrics.headerSize > metrics.wordSize &&
+      metrics.weight === metrics.wordWeight &&
+        metrics.headerSize === metrics.wordSize &&
         metrics.wordWeight === 400,
       JSON.stringify(metrics),
     );
+    await search.fill("ユーザー24");
+    await words()
+      .getByRole("button", { name: "ユーザー240を編集", exact: true })
+      .waitFor();
+    await page
+      .getByRole("region", { name: "ユーザー辞書", exact: true })
+      .screenshot({ path: path.join(profile, "speak-dictionary-frame.png") });
     measurements.push({
       dictionaryRowHeight: metrics.height,
       headerSize: metrics.headerSize,
@@ -603,8 +663,23 @@ async function useShared() {
       "all virtual rows restored",
     );
     const tableHeader = words().locator("thead");
-    await tableHeader.evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+    await tableHeader.evaluate((el) =>
+      el.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
     const tableArea = await tableHeader.boundingBox();
+    const edges = await tableHeader.evaluate((el) => {
+      const container = el
+        .closest(".settings-list-scroll")
+        .getBoundingClientRect();
+      const section = el
+        .closest("section.settings-section")
+        .getBoundingClientRect();
+      return Math.max(
+        Math.abs(container.left - section.left),
+        Math.abs(container.right - section.right),
+      );
+    });
+    assert(edges < 2, "dictionary rows reach both sides of their frame");
     await page.screenshot({
       path: path.join(profile, "speak-dictionary-rows.png"),
       clip: {
@@ -878,19 +953,51 @@ async function useShared() {
     const good = readUser();
     fs.writeFileSync(path.join(shared, "user.csv"), "invalid,three,columns");
     await reload();
-    await page
-      .getByText("保存先のCSVとcatalog.jsonを確認し", { exact: false })
-      .waitFor();
+    const warningTitle = "辞書を読み込めません";
+    const warning = () =>
+      page.getByRole("button", { name: warningTitle, exact: true });
+    const details = () =>
+      page.getByRole("dialog", { name: warningTitle, exact: true });
+    for (const [tabId, heading] of [
+      ["source-dictionaries", "配布辞書"],
+      ["user-dictionary", "ユーザー辞書"],
+      ["settings", "基本設定"],
+    ]) {
+      await tab(tabId);
+      await page
+        .getByRole("region", { name: heading, exact: true })
+        .locator("header")
+        .getByRole("button", { name: warningTitle })
+        .waitFor();
+      assert(await details().isHidden());
+      await warning().focus();
+      await page.keyboard.press("Enter");
+      await details()
+        .getByText("保存先のCSVとcatalog.jsonを確認し", { exact: false })
+        .waitFor();
+      await details().getByRole("button", { name: "再読み込み" }).waitFor();
+      if (tabId === "settings")
+        await details().screenshot({
+          path: path.join(profile, "speak-dictionary-warning.png"),
+        });
+      await page.keyboard.press("Escape");
+      await details().waitFor({ state: "hidden" });
+      assert(await warning().evaluate((el) => el === document.activeElement));
+    }
     await preview("共通 個人優先", "改A 個人");
     fs.writeFileSync(path.join(shared, "user.csv"), good);
     await tab("source-dictionaries");
-    await reload();
+    await warning().click();
+    await details()
+      .getByRole("button", { name: "再読み込み", exact: true })
+      .click();
+    await warning().waitFor({ state: "detached" });
     await until(
       async () =>
-        (await page
-          .getByText("保存先のCSVとcatalog.jsonを確認し", { exact: false })
-          .count()) === 0,
-      "reload recovery",
+        await page
+          .getByTestId("provider-settings-tab:source-dictionaries")
+          .evaluate((el) => el === document.activeElement),
+      "focus returns to the selected tab after recovery",
     );
     checks.push(
       "invalid external CSV retains the previous usable dictionary and explicit reload recovers",
