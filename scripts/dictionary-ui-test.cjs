@@ -991,13 +991,17 @@ async function useShared() {
     await page
       .getByTestId("provider:helpers:source-dictionaries:list:order")
       .click();
+    const ordering = page.locator(".settings-inline-order");
+    await ordering.waitFor();
+    assert.equal(await page.getByRole("dialog").count(), 0);
     await button("辞書Bの順番を変更").focus();
     await page.keyboard.press("ArrowUp");
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "OK", exact: true })
-      .click();
-    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    const firstDraft = ordering.getByRole("row").nth(1);
+    assert.equal(await firstDraft.getByRole("cell").nth(1).innerText(), "1");
+    assert.match(await firstDraft.innerText(), /辞書B/);
+    assert.deepEqual(catalog().map((entry) => entry.name), ["辞書A", "辞書B"]);
+    await ordering.getByRole("button", { name: "適用", exact: true }).click();
+    await ordering.waitFor({ state: "hidden" });
     assert.deepEqual(
       catalog().map((entry) => entry.name),
       ["辞書B", "辞書A"],
