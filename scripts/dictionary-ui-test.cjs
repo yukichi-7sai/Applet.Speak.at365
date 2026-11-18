@@ -135,6 +135,21 @@ async function checkDictionaryLayout() {
     ),
   );
   assert.equal(await json.locator("svg").count(), 1);
+  const tabButtons = top
+    .getByTestId("provider-settings-tabs")
+    .getByRole("button");
+  const info = page.getByTestId("applet-information");
+  const infoActions = info.getByRole("group", { name: "Appletの操作" });
+  assert.equal(await tabButtons.count(), 4);
+  for (const name of ["設定", "ユーザー辞書", "配布辞書", "JSON"]) {
+    assert.equal(
+      await top
+        .getByRole("button", { name, exact: true })
+        .locator("svg")
+        .count(),
+      1,
+    );
+  }
   for (const width of [1500, 760, 1500]) {
     await resizeSettings(width);
     const compact = width === 760;
@@ -144,6 +159,63 @@ async function checkDictionaryLayout() {
         !compact,
       "JSON label fits the available tab width",
     );
+    for (const button of await tabButtons.all()) {
+      assert.equal(
+        await button.locator(".adaptive-toolbar-label").isVisible(),
+        !compact,
+      );
+    }
+    const operationButtons = infoActions.getByRole("button");
+    assert.equal(await operationButtons.count(), 4);
+    await until(
+      async () =>
+        (await infoActions
+          .locator(".adaptive-toolbar-label:visible")
+          .count()) === (compact ? 0 : 4),
+      "information action labels match available width",
+    );
+    for (const name of [
+      "このAppletを更新",
+      "停止",
+      "再起動",
+      "アンインストール",
+    ]) {
+      const action = infoActions.getByRole("button", { name, exact: true });
+      assert.equal(await action.locator("svg").count(), 1);
+      assert((await action.boundingBox()).height >= 43);
+    }
+    if (compact) {
+      const identity = await info.locator(".about-identity").boundingBox();
+      const description = await info
+        .getByTestId("applet-description")
+        .boundingBox();
+      const statistic = await info.locator(".settings-statistic").boundingBox();
+      assert(description.y >= identity.y + identity.height - 1);
+      assert(statistic.y >= description.y + description.height - 1);
+      assert(statistic.height < 50);
+      assert(
+        await infoActions.evaluate(
+          (el) => el.scrollWidth <= el.clientWidth + 1,
+        ),
+      );
+      assert(
+        await info.locator(".settings-statistic").getByRole("link").isEnabled(),
+      );
+    }
+    await info.screenshot({
+      path: path.join(
+        profile,
+        compact ? "speak-info-narrow.png" : "speak-info-wide.png",
+      ),
+    });
+    await top
+      .getByTestId("provider-settings-tabs")
+      .screenshot({
+        path: path.join(
+          profile,
+          compact ? "speak-tabs-narrow.png" : "speak-tabs-wide.png",
+        ),
+      });
     const title = await heading.getByRole("heading").boundingBox();
     const first = await actions.first().boundingBox();
     assert(
@@ -171,11 +243,47 @@ async function checkDictionaryLayout() {
     if (compact) {
       await json.focus();
       await page.keyboard.press("Enter");
-      await page.locator(".settings-panel-json > textarea").waitFor();
+      const jsonSection = page.getByRole("region", {
+        name: "JSON",
+        exact: true,
+      });
+      const editor = jsonSection.getByRole("textbox", {
+        name: "設定JSON",
+        exact: true,
+      });
+      await editor.waitFor();
+      assert(
+        await editor.evaluate(
+          (el) =>
+            el.clientHeight >= 3 * parseFloat(getComputedStyle(el).lineHeight),
+        ),
+      );
+      await jsonSection
+        .locator("header")
+        .getByRole("button", { name: "ファイルを開く", exact: true })
+        .waitFor();
+      assert.equal(
+        await top
+          .getByRole("button", { name: "ファイルを開く", exact: true })
+          .count(),
+        0,
+      );
+      await jsonSection.screenshot({
+        path: path.join(profile, "speak-json-narrow.png"),
+      });
       await tab("user-dictionary");
       await actions.first().waitFor();
     }
   }
+  await resizeSettings(1000);
+  await info.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  await info.screenshot({ path: path.join(profile, "speak-info-medium.png") });
+  await resizeSettings(1500);
   await tab("source-dictionaries");
   const source = page.getByRole("region", { name: "配布辞書", exact: true });
   await source.locator("header button").waitFor();
@@ -187,9 +295,21 @@ async function checkDictionaryLayout() {
     0,
   );
   await tab("settings");
-  await top.getByRole("button", { name: "試聴", exact: true }).waitFor();
+  const basic = page.getByRole("region", { name: "基本設定", exact: true });
+  await basic
+    .locator("header")
+    .getByRole("button", { name: "試聴", exact: true })
+    .waitFor();
+  await basic
+    .locator("header")
+    .getByRole("button", { name: "文章プレビュー", exact: true })
+    .waitFor();
+  assert.equal(
+    await top.getByRole("button", { name: "試聴", exact: true }).count(),
+    0,
+  );
   checks.push(
-    "dictionary section headings own their tab actions, the table has one outer frame, and JSON stays accessible at compact and wide widths",
+    "all four tabs have icons and section actions, JSON stays editable, and the information panel adapts its actions, description and command count at wide and compact widths",
   );
 }
 async function selectFile(file, save = false) {
@@ -440,6 +560,60 @@ async function useShared() {
     );
     assert.equal(await button("次のページ").count(), 0);
     assert.equal(await words().getAttribute("aria-rowcount"), "257");
+    const search = page.getByRole("searchbox", {
+      name: "ユーザー辞書を検索",
+      exact: true,
+    });
+    await search.fill("ユーザー98");
+    const sample = words().getByRole("row").filter({ hasText: "ユーザー98" });
+    await sample.waitFor();
+    const metrics = await sample.evaluate((row) => {
+      const head = getComputedStyle(
+        row.closest("table").querySelector("thead th"),
+      );
+      const word = getComputedStyle(row.querySelector(".command-title"));
+      return {
+        height: row.getBoundingClientRect().height,
+        header: head.backgroundColor,
+        weight: +head.fontWeight,
+        headerSize: parseFloat(head.fontSize),
+        wordSize: parseFloat(word.fontSize),
+        wordWeight: +word.fontWeight,
+      };
+    });
+    assert(
+      metrics.height >= 32 && metrics.height < 50,
+      JSON.stringify(metrics),
+    );
+    assert.equal(metrics.header, "rgba(0, 0, 0, 0)");
+    assert(
+      metrics.weight >= 600 &&
+        metrics.headerSize > metrics.wordSize &&
+        metrics.wordWeight === 400,
+      JSON.stringify(metrics),
+    );
+    measurements.push({
+      dictionaryRowHeight: metrics.height,
+      headerSize: metrics.headerSize,
+      wordSize: metrics.wordSize,
+    });
+    await search.fill("");
+    await until(
+      async () => (await words().getAttribute("aria-rowcount")) === "257",
+      "all virtual rows restored",
+    );
+    const tableHeader = words().locator("thead");
+    await tableHeader.evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+    const tableArea = await tableHeader.boundingBox();
+    await page.screenshot({
+      path: path.join(profile, "speak-dictionary-rows.png"),
+      clip: {
+        x: tableArea.x,
+        y: tableArea.y,
+        width: tableArea.width,
+        height: tableArea.height + 4 * metrics.height,
+      },
+    });
     assert((await words().locator("[data-virtual-row]").count()) < 200);
     const wordSearch = () =>
       page.getByRole("searchbox", { name: "ユーザー辞書を検索", exact: true });

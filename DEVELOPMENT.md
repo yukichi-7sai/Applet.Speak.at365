@@ -2,7 +2,7 @@
 
 ユーザー辞書は全行を共通providerテーブルへ返し、ページ状態と前後ページactionを持たない。本体の共通仮想表示と全件検索を利用する。ユーザー辞書の「表示範囲」と配布辞書の「辞書の優先順」パネルを置かず、配布順序はテーブルの列と並べ替え操作で示す。CSV形式・行ID・照合の優先順位は保持する。
 
-最低ホスト版は0.265.0。辞書タブは `settingsTabs[].toolbarPanel` で表のパネルIDを指定し、通常の `snapshot.tabs[].toolbar` をSection見出しへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
+最低ホスト版は0.266.0。設定タブは `toolbarSection` に `publication` を指定し、文章プレビューと試聴を「基本設定」見出しに配置する。各タブのアイコンは `settingsTabs[].icon` で指定する。辞書タブは `settingsTabs[].toolbarPanel` で表のパネルIDを指定し、通常の `snapshot.tabs[].toolbar` をSection見出しへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
 
 [AppDock共通指示](../AppDock.at365/AGENTS.md)、[Applet API](../AppDock.at365/docs/extensions.md)、[読み上げ設計](../AppDock.at365/docs/speech-applet-design.md)、[共通固定ランタイム](../AppDock.at365/docs/test-runtime.md)を正本とする。
 

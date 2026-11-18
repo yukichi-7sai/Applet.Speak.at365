@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.14.0",
-  "minimumHostVersion": "0.265.0",
+  "version": "0.15.0",
+  "minimumHostVersion": "0.266.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -207,6 +207,7 @@
   "settingsTabs": [
     {
       "id": "settings",
+      "icon": "settings",
       "title": "設定",
       "sections": [
         "publication",
@@ -215,10 +216,12 @@
         "playback",
         "dictionary"
       ],
-      "provider": "helpers/settings"
+      "provider": "helpers/settings",
+      "toolbarSection": "publication"
     },
     {
       "id": "user-dictionary",
+      "icon": "book-user",
       "title": "ユーザー辞書",
       "sections": [],
       "provider": "helpers/user-dictionary",
@@ -226,6 +229,7 @@
     },
     {
       "id": "source-dictionaries",
+      "icon": "books",
       "title": "配布辞書",
       "sections": [],
       "provider": "helpers/source-dictionaries",
