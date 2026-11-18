@@ -178,7 +178,12 @@ function createExtension() {
       ],
       list: { titleKey: "name", enabledKey: "enabled" },
       actions: [
-        { id: "source.import", title: "CSVを取り込む", role: "add" },
+        {
+          id: "source.import",
+          title: "CSVを取り込む",
+          icon: "download",
+          role: "add",
+        },
         { id: "source.order", title: "優先順を変更", role: "order" },
       ],
       rows: state.entries.map((row, i) => ({
@@ -210,7 +215,12 @@ function createExtension() {
             rowId: row.id,
             confirm: `「${row.name}」（${row.count}件）の登録とAppDock内のCSVコピーを削除しますか？ 元の指定ファイルは残ります。`,
           },
-          { id: "source.replace", title: "再インポート", rowId: row.id },
+          {
+            id: "source.replace",
+            title: "再インポート",
+            icon: "download",
+            rowId: row.id,
+          },
         ],
       })),
     },
@@ -283,6 +293,7 @@ function createExtension() {
           case "snapshot": {
             const reloadAction = {
               id: "dictionary.reload",
+              icon: "refresh",
               title: "再読み込み",
             };
             const warning = dictionaries.error && {
@@ -312,6 +323,7 @@ function createExtension() {
                     ? [
                         {
                           title: "取り込み",
+                          icon: "download",
                           items: [
                             { id: "csv.open", title: "CSVファイルを取り込む" },
                             {
@@ -320,7 +332,7 @@ function createExtension() {
                             },
                           ],
                         },
-                        { id: "csv.export", title: "書き出し" },
+                        { id: "csv.export", title: "書き出し", icon: "upload" },
                         warning || reloadAction,
                       ]
                     : [warning || reloadAction],

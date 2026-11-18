@@ -82,10 +82,9 @@ const measurements = [];
 let page;
 const button = (name) => page.getByRole("button", { name, exact: true });
 const tab = (id) => page.getByTestId("provider-settings-tab:" + id).click();
+const listControls = () => page.locator(".settings-list-control-panel");
 const reload = () =>
-  page
-    .getByRole("region", { name: "配布辞書", exact: true })
-    .locator("header")
+  listControls()
     .getByRole("button", { name: "再読み込み", exact: true })
     .click();
 async function open() {
@@ -115,7 +114,9 @@ async function checkDictionaryLayout() {
   const user = page.getByRole("region", { name: "ユーザー辞書", exact: true });
   await tab("user-dictionary");
   const heading = user.locator("header");
-  const actions = heading.getByRole("button");
+  const actions = listControls()
+    .locator(".settings-page-tab-actions")
+    .getByRole("button");
   await actions.first().waitFor();
   assert.deepEqual(await actions.allTextContents(), [
     "取り込み",
@@ -216,11 +217,19 @@ async function checkDictionaryLayout() {
     });
     const title = await heading.getByRole("heading").boundingBox();
     const first = await actions.first().boundingBox();
+    const searchBox = await listControls().getByRole("searchbox").boundingBox();
+    const add = listControls().getByRole("button", { name: "単語を追加" });
+    const addBox = await add.boundingBox();
+    assert(first.y + first.height <= title.y && addBox.y < title.y);
+    assert(await heading.getByRole("status").isVisible());
+    assert.equal(await heading.getByRole("button").count(), 0);
     assert(
       compact
-        ? first.y >= title.y + title.height - 1
-        : first.x >= title.x + title.width,
-      "dictionary actions are beside the heading or below it in the narrow view",
+        ? searchBox.y + searchBox.height <= addBox.y + 1
+        : Math.abs(
+            searchBox.y + searchBox.height / 2 - addBox.y - addBox.height / 2,
+          ) < 3,
+      "search is above the controls at narrow widths and on their row at wide widths",
     );
     assert(
       await heading.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
@@ -230,7 +239,12 @@ async function checkDictionaryLayout() {
     assert(
       await actions.nth(1).evaluate((el) => el === document.activeElement),
     );
-    await user.screenshot({
+    assert(
+      await listControls().evaluate(
+        (el) => el.scrollWidth <= el.clientWidth + 1,
+      ),
+    );
+    await user.locator("..").screenshot({
       path: path.join(
         profile,
         compact
@@ -273,6 +287,16 @@ async function checkDictionaryLayout() {
       await actions.first().waitFor();
     }
   }
+  await resizeSettings(880);
+  const addLabel = listControls()
+    .getByRole("button", { name: "単語を追加" })
+    .locator(".adaptive-toolbar-label");
+  await until(
+    async () =>
+      (await addLabel.isVisible()) &&
+      !(await actions.first().locator(".adaptive-toolbar-label").isVisible()),
+    "keep the add label after secondary controls collapse",
+  );
   await resizeSettings(1000);
   await info.evaluate(
     () =>
@@ -291,15 +315,60 @@ async function checkDictionaryLayout() {
   await resizeSettings(1500);
   await tab("source-dictionaries");
   const source = page.getByRole("region", { name: "配布辞書", exact: true });
-  await source.locator("header button").waitFor();
-  assert.deepEqual(await source.locator("header button").allTextContents(), [
-    "再読み込み",
-  ]);
+  await listControls()
+    .getByRole("button", { name: "再読み込み", exact: true })
+    .waitFor();
+  assert.equal(await source.locator("header button").count(), 0);
+  for (const name of ["CSVを取り込む", "優先順を変更"]) {
+    assert(
+      await listControls()
+        .getByRole("button", { name, exact: true })
+        .isVisible(),
+    );
+  }
   assert.equal(
     await top.getByRole("button", { name: "再読み込み", exact: true }).count(),
     0,
   );
-  await tab("settings");
+  for (const width of [760, 1500]) {
+    await resizeSettings(width);
+    await tab("source-dictionaries");
+    await page.evaluate(() => {
+      window.basicHeaderSamples = [];
+      const observer = new MutationObserver(() => {
+        const slot = document.querySelector(
+          'header [data-provider-tab="helpers/settings"]',
+        );
+        if (!slot) return;
+        const rect = slot.closest("header").getBoundingClientRect();
+        const filled = !!slot.querySelector("button");
+        window.basicHeaderSamples.push({ filled, height: rect.height });
+        if (filled) observer.disconnect();
+      });
+      observer.observe(document.querySelector(".settings-page-layout"), {
+        subtree: true,
+        childList: true,
+      });
+    });
+    await tab("settings");
+    await until(
+      async () =>
+        page.evaluate(() => window.basicHeaderSamples.some((s) => s.filled)),
+      "provider actions appear",
+    );
+    const samples = await page.evaluate(() => window.basicHeaderSamples);
+    assert(
+      samples.some((s) => !s.filled),
+      "first render before provider response",
+    );
+    assert(
+      Math.max(...samples.map((s) => s.height)) -
+        Math.min(...samples.map((s) => s.height)) <=
+        1,
+      JSON.stringify(samples),
+    );
+    measurements.push({ width, basicHeaderSamples: samples });
+  }
   const basic = page.getByRole("region", { name: "基本設定", exact: true });
   await basic
     .locator("header")
@@ -347,13 +416,34 @@ async function importFile(file, name, row) {
   await selectFile(file);
   if (name) {
     await tab("source-dictionaries");
-    if (row)
-      await page
+    if (row) {
+      const action = page
         .getByRole("row")
         .filter({ hasText: row })
-        .getByRole("button", { name: "再インポート", exact: true })
-        .click();
-    else
+        .getByRole("button", { name: "再インポート", exact: true });
+      await action.waitFor();
+      assert.equal(await action.locator("svg").count(), 1);
+      assert.equal(await action.textContent(), "");
+      assert.equal(await action.getAttribute("title"), "再インポート");
+      await resizeSettings(1500);
+      await action.focus();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Shift+Tab");
+      assert(
+        await action.evaluate(
+          (el) =>
+            el.matches(":focus-visible") &&
+            getComputedStyle(el, "::after").content !== "none",
+        ),
+      );
+      const list = page
+        .getByRole("region", { name: "配布辞書", exact: true })
+        .locator("..");
+      await list.screenshot({
+        path: path.join(profile, "speak-source-dictionaries.png"),
+      });
+      await page.keyboard.press("Enter");
+    } else
       await page
         .getByTestId("provider:helpers:source-dictionaries:add")
         .click();
@@ -421,7 +511,7 @@ async function useShared() {
     const initialHeading = page
       .getByRole("region", { name: "ユーザー辞書", exact: true })
       .locator("header");
-    const initialWarning = initialHeading.getByRole("button", {
+    const initialWarning = listControls().getByRole("button", {
       name: "辞書を読み込めません",
     });
     const initialDetails = page.getByRole("dialog", {
@@ -451,7 +541,7 @@ async function useShared() {
       .getByRole("table", { name: "ユーザー辞書", exact: true })
       .waitFor();
     checks.push(
-      "a first-launch dictionary failure shows details in its heading, dismisses on outside click and recovers from the same control",
+      "a first-launch dictionary failure shows details above the list heading, dismisses on outside click and recovers from the same control",
     );
     await checkDictionaryLayout();
     await page
@@ -649,8 +739,16 @@ async function useShared() {
     await words()
       .getByRole("button", { name: "ユーザー240を編集", exact: true })
       .waitFor();
-    await page
-      .getByRole("region", { name: "ユーザー辞書", exact: true })
+    const frame = page.getByRole("region", {
+      name: "ユーザー辞書",
+      exact: true,
+    });
+    assert.match(
+      await frame.locator("header").getByRole("status").innerText(),
+      /9\s*\/\s*256/,
+    );
+    await frame
+      .locator("..")
       .screenshot({ path: path.join(profile, "speak-dictionary-frame.png") });
     measurements.push({
       dictionaryRowHeight: metrics.height,
@@ -964,11 +1062,13 @@ async function useShared() {
       ["settings", "基本設定"],
     ]) {
       await tab(tabId);
-      await page
-        .getByRole("region", { name: heading, exact: true })
-        .locator("header")
-        .getByRole("button", { name: warningTitle })
-        .waitFor();
+      const warningArea =
+        tabId === "settings"
+          ? page
+              .getByRole("region", { name: heading, exact: true })
+              .locator("header")
+          : listControls();
+      await warningArea.getByRole("button", { name: warningTitle }).waitFor();
       assert(await details().isHidden());
       await warning().focus();
       await page.keyboard.press("Enter");
