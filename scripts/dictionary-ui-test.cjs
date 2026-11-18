@@ -84,7 +84,8 @@ const button = (name) => page.getByRole("button", { name, exact: true });
 const tab = (id) => page.getByTestId("provider-settings-tab:" + id).click();
 const reload = () =>
   page
-    .getByTestId("settings-page-tools")
+    .getByRole("region", { name: "配布辞書", exact: true })
+    .locator("header")
     .getByRole("button", { name: "再読み込み", exact: true })
     .click();
 async function open() {
@@ -97,6 +98,99 @@ async function open() {
   await page
     .getByRole("switch", { name: "辞書で置き換える", exact: true })
     .waitFor();
+}
+async function resizeSettings(width) {
+  await host.evaluate((electron, width) => {
+    const window = electron.BrowserWindow.getAllWindows().find((window) =>
+      window.webContents.getURL().startsWith("appdock://host/"),
+    );
+    const [minWidth, minHeight] = window.getMinimumSize();
+    if (minWidth > width) window.setMinimumSize(width, minHeight);
+    window.setSize(width, 900);
+  }, width);
+}
+async function checkDictionaryLayout() {
+  const top = page.getByTestId("settings-page-tools");
+  const json = top.getByRole("button", { name: "JSON", exact: true });
+  const user = page.getByRole("region", { name: "ユーザー辞書", exact: true });
+  await tab("user-dictionary");
+  const heading = user.locator("header");
+  const actions = heading.getByRole("button");
+  await actions.first().waitFor();
+  assert.deepEqual(await actions.allTextContents(), [
+    "取り込み",
+    "書き出し",
+    "再読み込み",
+  ]);
+  assert.equal(await top.getByRole("button", { name: "取り込み" }).count(), 0);
+  assert.equal(
+    await user
+      .locator(".settings-list-scroll")
+      .evaluate((el) => getComputedStyle(el).borderTopWidth),
+    "0px",
+  );
+  assert(
+    await user.evaluate(
+      (el) => parseFloat(getComputedStyle(el).borderTopWidth) > 0,
+    ),
+  );
+  assert.equal(await json.locator("svg").count(), 1);
+  for (const width of [1500, 760, 1500]) {
+    await resizeSettings(width);
+    const compact = width === 760;
+    await until(
+      async () =>
+        (await json.locator(".adaptive-toolbar-label").isVisible()) ===
+        !compact,
+      "JSON label fits the available tab width",
+    );
+    const title = await heading.getByRole("heading").boundingBox();
+    const first = await actions.first().boundingBox();
+    assert(
+      compact
+        ? first.y >= title.y + title.height - 1
+        : first.x >= title.x + title.width,
+      "dictionary actions are beside the heading or below it in the narrow view",
+    );
+    assert(
+      await heading.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+    );
+    await actions.first().focus();
+    await page.keyboard.press("ArrowRight");
+    assert(
+      await actions.nth(1).evaluate((el) => el === document.activeElement),
+    );
+    await user.screenshot({
+      path: path.join(
+        profile,
+        compact
+          ? "dictionary-section-narrow.png"
+          : "dictionary-section-wide.png",
+      ),
+    });
+    if (compact) {
+      await json.focus();
+      await page.keyboard.press("Enter");
+      await page.locator(".settings-panel-json > textarea").waitFor();
+      await tab("user-dictionary");
+      await actions.first().waitFor();
+    }
+  }
+  await tab("source-dictionaries");
+  const source = page.getByRole("region", { name: "配布辞書", exact: true });
+  await source.locator("header button").waitFor();
+  assert.deepEqual(await source.locator("header button").allTextContents(), [
+    "再読み込み",
+  ]);
+  assert.equal(
+    await top.getByRole("button", { name: "再読み込み", exact: true }).count(),
+    0,
+  );
+  await tab("settings");
+  await top.getByRole("button", { name: "試聴", exact: true }).waitFor();
+  checks.push(
+    "dictionary section headings own their tab actions, the table has one outer frame, and JSON stays accessible at compact and wide widths",
+  );
 }
 async function selectFile(file, save = false) {
   await host.evaluate(
@@ -186,6 +280,7 @@ async function useShared() {
 (async () => {
   try {
     await open();
+    await checkDictionaryLayout();
     await page
       .getByRole("heading", { name: "前後の文章", exact: true })
       .waitFor();
@@ -763,15 +858,7 @@ async function useShared() {
         "theme",
       );
       for (const width of [1280, 760]) {
-        await host.evaluate(
-          (electron, value) =>
-            electron.BrowserWindow.getAllWindows()
-              .find((window) =>
-                window.webContents.getURL().startsWith("appdock://host/"),
-              )
-              .setSize(value, 900),
-          width,
-        );
+        await resizeSettings(width);
         assert.equal(
           await page
             .locator(".settings-body")
