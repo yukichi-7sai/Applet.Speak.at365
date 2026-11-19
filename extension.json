@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.17.0",
-  "minimumHostVersion": "0.268.0",
+  "version": "0.18.0",
+  "minimumHostVersion": "0.275.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -18,6 +18,43 @@
     "storage"
   ],
   "settings": [
+    {
+      "key": "saveAudio",
+      "title": "読み上げた音声を自動保存",
+      "type": "boolean",
+      "default": false,
+      "localOnly": true,
+      "description": "Speakの読み上げと試聴で、再生を開始した部分の元のWAVを保存します。"
+    },
+    {
+      "key": "audioDirectory",
+      "title": "WAVの保存先",
+      "type": "string",
+      "format": "directory",
+      "directoryBase": "space",
+      "default": "",
+      "localOnly": true,
+      "visibleWhen": { "key": "saveAudio", "equals": true },
+      "description": "初期の保存先はスペースです。「選ぶ」でWindowsのフォルダー選択を開きます。"
+    },
+    {
+      "key": "audioByServer",
+      "title": "サーバー名ごとにフォルダーを分ける",
+      "type": "boolean",
+      "default": true,
+      "localOnly": true,
+      "visibleWhen": { "key": "saveAudio", "equals": true },
+      "description": "実際に読み上げに使った音声サーバーの登録名でフォルダーを作ります。"
+    },
+    {
+      "key": "combineAudio",
+      "title": "分割した音声を1本のWAVにまとめる",
+      "type": "boolean",
+      "default": false,
+      "localOnly": true,
+      "visibleWhen": { "key": "saveAudio", "equals": true },
+      "description": "再生した部分を順番につないで保存します。オフでは部分ごとのWAVを保存します。"
+    },
     {
       "key": "additionTiming",
       "title": "前後の文章を追加するタイミング",
@@ -163,6 +200,12 @@
       "description": "半角英字（A–Z／a–z）の違いを無視して照合します。元の文章やCSVの表記は保持します。"
     }
   ],
+  "speechArchive": {
+    "enabled": "saveAudio",
+    "directory": "audioDirectory",
+    "byServer": "audioByServer",
+    "combine": "combineAudio"
+  },
   "settingSections": [
     {
       "id": "publication",
@@ -199,6 +242,11 @@
       "settings": ["startMode", "startCount", "startSeconds"]
     },
     {
+      "id": "audio-files",
+      "title": "音声の保存",
+      "settings": ["saveAudio", "audioDirectory", "audioByServer", "combineAudio"]
+    },
+    {
       "id": "dictionary",
       "title": "辞書変換",
       "settings": ["dictionaryEnabled", "dictionaryIgnoreCase"]
@@ -214,6 +262,7 @@
         "text-additions",
         "splitting",
         "playback",
+        "audio-files",
         "dictionary"
       ],
       "provider": "helpers/settings",

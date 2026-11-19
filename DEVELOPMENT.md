@@ -2,11 +2,13 @@
 
 ユーザー辞書は全行を共通providerテーブルへ返し、ページ状態と前後ページactionを持たない。本体の共通仮想表示と全件検索を利用する。ユーザー辞書の「表示範囲」と配布辞書の「辞書の優先順」パネルを置かず、配布順序はテーブルの列と並べ替え操作で示す。CSV形式・行ID・照合の優先順位は保持する。
 
-最低ホスト版は0.268.0。辞書読み込み失敗時はツールバーに警告名・詳細・復旧操作を渡す。設定タブは `toolbarSection` に `publication` を指定し、文章プレビューと試聴を「基本設定」見出しに配置する。各タブのアイコンは `settingsTabs[].icon` で指定する。辞書タブは `settingsTabs[].toolbarList` で表のパネルIDを指定し、`snapshot.tabs[].toolbar` を一覧の検索・操作と同じパネルへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
+最低ホスト版は0.275.0。辞書読み込み失敗時はツールバーに警告名・詳細・復旧操作を渡す。設定タブは `toolbarSection` に `publication` を指定し、文章プレビューと試聴を「基本設定」見出しに配置する。各タブのアイコンは `settingsTabs[].icon` で指定する。辞書タブは `settingsTabs[].toolbarList` で表のパネルIDを指定し、`snapshot.tabs[].toolbar` を一覧の検索・操作と同じパネルへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
 
 [AppDock共通指示](../AppDock.at365/AGENTS.md)、[Applet API](../AppDock.at365/docs/extensions.md)、[読み上げ設計](../AppDock.at365/docs/speech-applet-design.md)、[共通固定ランタイム](../AppDock.at365/docs/test-runtime.md)を正本とする。
 
 利用方法は[Speakの使い方](docs/usage.md)を参照する。外部依存のないNode CommonJS Applet。`src/processing.cjs`がCSV検証・置換・分割、`src/dictionary-store.cjs`がCSV保存・辞書統合・索引の寿命、`index.cjs`が宣言型設定とMCP handlerを所有する。`extension.json`が版・最低ホスト版・設定・MCP宣言の正本。
+
+WAVの自動保存・保存先・サーバー別・結合設定は `extension.json` の `speechArchive` で宣言する。再生開始とWAV保全は[本体の連続読み上げ](../AppDock.at365/docs/tts-design.md#連続読み上げのwav保存)が担当する。本体の固定Nodeで `scripts/recording-ui-test.cjs <固定EXE> <発行済みApplet>` を実行し、フォルダー選択の初期値・取消、再起動後の設定、通常読み上げ・試聴の保存内容、音声サーバーの登録名の重複を検証する。
 
 辞書の検索は`src/dictionary-engine.cjs`の連続配列型トライで行う。[辞書エンジンとCSV保存](docs/dictionary-engine.md)で検索契約・保存構成・メモリ上の切り替えを定義する。
 
