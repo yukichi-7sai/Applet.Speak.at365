@@ -2,7 +2,7 @@
 
 ユーザー辞書は全行を共通providerテーブルへ返し、ページ状態と前後ページactionを持たない。本体の共通仮想表示と全件検索を利用する。ユーザー辞書の「表示範囲」と配布辞書の「辞書の優先順」パネルを置かず、配布順序はテーブルの列と並べ替え操作で示す。CSV形式・行ID・照合の優先順位は保持する。
 
-最低ホスト版は0.275.0。辞書読み込み失敗時はツールバーに警告名・詳細・復旧操作を渡す。設定タブは `toolbarSection` に `publication` を指定し、文章プレビューと試聴を「基本設定」見出しに配置する。各タブのアイコンは `settingsTabs[].icon` で指定する。辞書タブは `settingsTabs[].toolbarList` で表のパネルIDを指定し、`snapshot.tabs[].toolbar` を一覧の検索・操作と同じパネルへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
+最低ホスト版は0.282.0。発信元の監査記録に対応するホストが必要。辞書読み込み失敗時はツールバーに警告名・詳細・復旧操作を渡す。設定タブは `toolbarSection` に `publication` を指定し、文章プレビューと試聴を「基本設定」見出しに配置する。各タブのアイコンは `settingsTabs[].icon` で指定する。辞書タブは `settingsTabs[].toolbarList` で表のパネルIDを指定し、`snapshot.tabs[].toolbar` を一覧の検索・操作と同じパネルへ置く。通常設定の表示条件`visibleWhen`とMCPモジュール説明の共通リンクを利用する。Applet概要と画面用の`mcpToolModules[].description`へ`[setting:tts]`を記述し、「基本設定」セクションのIDは`publication`を維持する。AIへ渡す`tools[].description`へリンクタグを混ぜない。MCPモジュールに`responseMode: "accepted"`を宣言する。本体は本文/設定の保持で受信結果を先に返し、`onMcpTool`の配送・辞書準備・分割・`tts.sequences.speak`の受付完了を待たない。内部handlerは従来どおり本体TTSへの登録をawaitし、失敗を本体のバックグラウンド実行へ伝える。通常設定は受信時のsnapshot、辞書本文は処理開始時の常駐索引を使う。プレビュー・ローカル試聴はこのMCP応答方式と独立する。
 
 [AppDock共通指示](../AppDock.at365/AGENTS.md)、[Applet API](../AppDock.at365/docs/extensions.md)、[読み上げ設計](../AppDock.at365/docs/speech-applet-design.md)、[共通固定ランタイム](../AppDock.at365/docs/test-runtime.md)を正本とする。
 
@@ -18,7 +18,7 @@ WAVの自動保存・保存先・サーバー別・結合設定は `extension.js
 
 両方式とも`src/processing.cjs`で保護範囲と書記素境界を照合した候補を一度列挙し、各部分の目安位置から前後で最も近い候補を選ぶ。同距離は手前。文字種のスコア・探索距離の制限・任意位置へのフォールバックは使わない。候補がない場合は残り全文、残りが目安以下なら最後の1部分とし、空白だけの部分を作らず全文を保持する。文単位の空白・改行・閉じ括弧の所属はIntlの結果に従い、文末の完全な意味理解を保証しない。設定は通常SettingsとMCPの`settingsKeys`へ含め、同じprocessorをプレビュー・試聴・MCPで共用する。
 
-前後の文章は通常の文字列設定`prefixText`/`suffixText`へ保存し、両方の初期値を空にする。境界の`prefixNewline`/`suffixNewline`はそれぞれ初期true。`additionTiming`は初期`before-split`で、非空の前後文を本文へ追加してから全体を辞書変換・分割する。`after-split`では本文を辞書変換・分割し、別に一度だけ変換した前後文を全ての部分へ付けて再分割しない。変換済み本文の再置換と境界をまたぐ辞書照合は行わない。どちらもON側にだけ改行1つを挿入し、入力そのものの空白・改行は保持する。プレビューの入力は元の本文を保持し、出力へ最終segmentsをつないだ全体を表示する。MCP入力の4項目と本体/RelayのAPIは変更せず、自己設定snapshotに追加タイミング・前後文・改行の選択を含める。
+前後の文章は通常の文字列設定`prefixText`/`suffixText`へ保存し、両方の初期値を空にする。境界の`prefixNewline`/`suffixNewline`はそれぞれ初期true。`additionTiming`は初期`before-split`で、非空の前後文を本文へ追加してから全体を辞書変換・分割する。`after-split`では本文を辞書変換・分割し、別に一度だけ変換した前後文を全ての部分へ付けて再分割しない。変換済み本文の再置換と境界をまたぐ辞書照合は行わない。どちらもON側にだけ改行1つを挿入し、入力そのものの空白・改行は保持する。プレビューの入力は元の本文を保持し、出力へ最終segmentsをつないだ全体を表示する。自己設定snapshotに追加タイミング・前後文・改行の選択を含める。監査専用の任意入力`source`は[本体の受信時](../AppDock.at365/docs/audit-log-design.md#読み上げの発信元自己申告)に処理する。Appletの辞書処理や`tts.sequences.speak`の引数には含めない。
 
 設定タブと補助ボタンは[共通設定ページ](../AppDock.at365/docs/extensions.md#共通の設定ページ)と[provider toolbar](../AppDock.at365/docs/applet-providers.md#設定と表示)で宣言する。単語一覧・配布辞書一覧・優先順・編集ダイアログは本体の共通部品を使用する。通常設定と`helpers`へ辞書を複製しない。AppDock 0.249.0以降の[ファイルStorage](../AppDock.at365/docs/storage-files.md)を`configuration` scopeで使う。既存のSettings内の辞書は使用せず、移行を実装しない。
 

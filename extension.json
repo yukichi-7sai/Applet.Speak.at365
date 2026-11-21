@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.18.0",
-  "minimumHostVersion": "0.275.0",
+  "version": "0.19.0",
+  "minimumHostVersion": "0.282.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -569,7 +569,7 @@
         {
           "name": "appdock_speech_speak",
           "title": "Speak: 文章を読み上げる",
-          "description": "文章を受信すると、辞書変換・文章分割・読み上げキュー登録を待たずに受信結果を返します。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。応答後は次の作業へ進んでください。",
+          "description": "文章を受信すると、辞書変換・文章分割・読み上げキュー登録を待たずに受信結果を返します。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。発信元が分かる場合はsourceに実際の端末名やチャット・タスクのタイトルなどを添えてください。応答後は次の作業へ進んでください。",
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -592,6 +592,18 @@
               "instructions": {
                 "type": "string",
                 "description": "話し方や感情などのニュアンス。"
+              },
+              "source": {
+                "type": "object",
+                "description": "監査用の自己申告の発信元。オブジェクトも各項目も省略できます。",
+                "additionalProperties": false,
+                "properties": {
+                  "clientName": { "type": "string", "description": "呼び出し元のアプリ名。" },
+                  "deviceName": { "type": "string", "description": "呼び出し元が動作する端末名。" },
+                  "chatTitle": { "type": "string", "description": "送信時のチャットタイトル。" },
+                  "taskTitle": { "type": "string", "description": "送信時のタスクタイトル。" },
+                  "chatId": { "type": "string", "description": "呼び出し元のチャットID。" }
+                }
               }
             }
           },

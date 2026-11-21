@@ -69,7 +69,7 @@ function fixture() {
     },
   };
 }
-test("one MCP tool accepts four public fields and uses the resident CSV dictionary", async () => {
+test("speech accepts optional caller labels and sends only synthesis inputs after dictionary conversion", async () => {
   const f = fixture();
   f.storage.data.set("shared/user.csv", "AppDock,アップドック");
   await f.start();
@@ -80,7 +80,14 @@ test("one MCP tool accepts four public fields and uses the resident CSV dictiona
     "connectionId",
     "connectionName",
     "instructions",
+    "source",
     "text",
+  ]);
+  const { inputSchema } = tool[0];
+  assert.deepEqual(inputSchema.required, ["text"]);
+  assert.deepEqual(inputSchema.properties.source.required ?? [], []);
+  assert.deepEqual(Object.keys(inputSchema.properties.source.properties).sort(), [
+    "chatId", "chatTitle", "clientName", "deviceName", "taskTitle",
   ]);
   assert(!manifest.settings.some((setting) => setting.key === "dictionary"));
   assert(!manifest.mcpToolModules[0].settingsKeys.includes("dictionary"));
@@ -89,6 +96,7 @@ test("one MCP tool accepts four public fields and uses the resident CSV dictiona
     connectionId: "id",
     connectionName: "name",
     instructions: "静かに",
+    source: { chatTitle: "送信時のタイトル", deviceName: "client-pc" },
   };
   const reads = f.storage.reads.length;
   for (let i = 0; i < 10; i++)
