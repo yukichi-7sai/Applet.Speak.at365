@@ -76,6 +76,14 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
   const tool = manifest.mcpToolModules[0].tools;
   assert.equal(tool.length, 1);
   assert.equal(tool[0].name, "appdock_speech_speak");
+  for (const key of ["recordSpeechSource", "recordSpeechText"]) {
+    const field = manifest.settings.find((item) => item.key === key);
+    assert.equal(field.type, "boolean");
+    assert.equal(field.default, false);
+    assert.equal(field.automation, false);
+    assert(manifest.settingSections.find((section) => section.id === "audit-log").settings.includes(key));
+    assert(!manifest.mcpToolModules[0].settingsKeys.includes(key));
+  }
   assert.deepEqual(Object.keys(tool[0].inputSchema.properties).sort(), [
     "connectionId",
     "connectionName",

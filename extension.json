@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.19.0",
-  "minimumHostVersion": "0.282.0",
+  "version": "0.20.0",
+  "minimumHostVersion": "0.283.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -18,6 +18,22 @@
     "storage"
   ],
   "settings": [
+    {
+      "key": "recordSpeechSource",
+      "title": "読み上げの発信元を記録する",
+      "type": "boolean",
+      "default": false,
+      "automation": false,
+      "description": "「監査ログの内容をマスクする」がONでも、読み上げツールに渡された端末名・チャットタイトルなどを監査ログに保存します。OFFでは発信元を保存しません。"
+    },
+    {
+      "key": "recordSpeechText",
+      "title": "読み上げの本文を記録する",
+      "type": "boolean",
+      "default": false,
+      "automation": false,
+      "description": "「監査ログの内容をマスクする」がONでも、読み上げツールが受け取った原文を受付時に1回だけ保存します。OFFでは本文を監査ログに保存しません。"
+    },
     {
       "key": "saveAudio",
       "title": "読み上げた音声を自動保存",
@@ -213,6 +229,11 @@
       "mcpModules": ["at365.speak.read-aloud"]
     },
     {
+      "id": "audit-log",
+      "title": "監査ログ",
+      "settings": ["recordSpeechSource", "recordSpeechText"]
+    },
+    {
       "id": "text-additions",
       "title": "前後の文章",
       "description": "前後の文章も辞書変換の対象になります。分割後は各部分に追加します。",
@@ -259,6 +280,7 @@
       "title": "設定",
       "sections": [
         "publication",
+        "audit-log",
         "text-additions",
         "splitting",
         "playback",
