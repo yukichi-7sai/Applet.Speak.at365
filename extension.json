@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.20.0",
-  "minimumHostVersion": "0.283.0",
+  "version": "0.22.0",
+  "minimumHostVersion": "0.307.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -18,6 +18,17 @@
     "storage"
   ],
   "settings": [
+    {
+      "key": "connectionNameMatch",
+      "title": "サーバー名の照合方式",
+      "type": "select",
+      "default": "prefix",
+      "options": [
+        { "label": "完全一致", "value": "exact" },
+        { "label": "前方一致", "value": "prefix" }
+      ],
+      "description": "読み上げツールに渡されたサーバー名を照合します。「完全一致」は登録名全体が同じサーバーを選びます。「前方一致」は設定一覧の上から、指定した名前で始まる最初のサーバーを選びます。"
+    },
     {
       "key": "recordSpeechSource",
       "title": "読み上げの発信元を記録する",
@@ -226,6 +237,7 @@
     {
       "id": "publication",
       "title": "基本設定",
+      "settings": ["connectionNameMatch"],
       "mcpModules": ["at365.speak.read-aloud"]
     },
     {
@@ -570,6 +582,7 @@
       "apiProfile": "speech",
       "responseMode": "accepted",
       "settingsKeys": [
+        "connectionNameMatch",
         "additionTiming",
         "prefixText",
         "prefixNewline",
@@ -591,7 +604,7 @@
         {
           "name": "appdock_speech_speak",
           "title": "Speak: 文章を読み上げる",
-          "description": "文章を受信すると、辞書変換・文章分割・読み上げキュー登録を待たずに受信結果を返します。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。接続はconnectionIdを優先し、未指定ならconnectionName、どちらも指定しなければ既定を使います。発信元が分かる場合はsourceに実際の端末名やチャット・タスクのタイトルなどを添えてください。応答後は次の作業へ進んでください。",
+          "description": "文章を受信すると、辞書変換・文章分割・読み上げキュー登録を待たずに受信結果を返します。textに文章、instructionsに話し方や感情などのニュアンスを指定してください。サーバー名やIDはユーザーの指定に従い、省略時は既定の接続を使います。発信元が分かる場合はsourceに実際の端末名やチャット・タスクのタイトルなどを添えてください。応答後は次の作業へ進んでください。",
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -609,7 +622,7 @@
               },
               "connectionName": {
                 "type": "string",
-                "description": "音声サーバーの名前。設定順の完全一致で選び、一致しなければ既定を使います。"
+                "description": "ユーザーが指定した音声サーバー名。"
               },
               "instructions": {
                 "type": "string",

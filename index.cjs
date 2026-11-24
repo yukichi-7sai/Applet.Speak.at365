@@ -256,11 +256,14 @@ function createExtension() {
       );
       signal.throwIfAborted();
       const { connectionId, connectionName, instructions } = request.input;
+      const connectionNameMatch = config.connectionNameMatch === "exact" ? "exact" : "prefix";
       await context.appdock.call("tts.sequences.speak", {
         segments: plan.segments,
         startPolicy: plan.startPolicy,
         ...(connectionId !== undefined ? { connectionId } : {}),
-        ...(connectionName !== undefined ? { connectionName } : {}),
+        ...(connectionName !== undefined
+          ? { connectionName, connectionNameMatch }
+          : {}),
         ...(instructions !== undefined ? { instructions } : {}),
       });
       return { accepted: true };

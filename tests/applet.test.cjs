@@ -76,6 +76,12 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
   const tool = manifest.mcpToolModules[0].tools;
   assert.equal(tool.length, 1);
   assert.equal(tool[0].name, "appdock_speech_speak");
+  const nameMatch = manifest.settings.find((field) => field.key === "connectionNameMatch");
+  assert.equal(nameMatch.default, "prefix");
+  assert.deepEqual(nameMatch.options.map(({ value }) => value), ["exact", "prefix"]);
+  assert(manifest.mcpToolModules[0].settingsKeys.includes(nameMatch.key));
+  assert.doesNotMatch(tool[0].description, /完全一致|前方一致/);
+  assert.doesNotMatch(tool[0].inputSchema.properties.connectionName.description, /完全一致|前方一致/);
   for (const key of ["recordSpeechSource", "recordSpeechText"]) {
     const field = manifest.settings.find((item) => item.key === key);
     assert.equal(field.type, "boolean");
@@ -117,7 +123,7 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
           settings: {
             revision: String(i),
             storageScope: "shared",
-            value: { splitEnabled: false },
+            value: { splitEnabled: false, ...(i === 9 ? { connectionNameMatch: "exact" } : {}) },
           },
         },
         f.signal,
@@ -136,8 +142,13 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
       startPolicy: { mode: "first" },
       connectionId: "id",
       connectionName: "name",
+      connectionNameMatch: "prefix",
       instructions: "静かに",
     },
+  ]);
+  assert.deepEqual(f.calls.at(-1), [
+    "tts.sequences.speak",
+    { ...f.calls[0][1], connectionNameMatch: "exact" },
   ]);
 });
 test("background Applet handler waits for internal host acceptance while its MCP module opts into receive-only responses", async () => {
