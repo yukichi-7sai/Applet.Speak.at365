@@ -86,6 +86,7 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
   assert.equal(sourceSetting.type, "boolean");
   assert.equal(sourceSetting.default, false);
   assert.equal(sourceSetting.automation, false);
+  assert(sourceSetting.description.includes("[setting:about:item:auditLogMasking]"));
   assert.deepEqual(manifest.settingSections.find((section) => section.id === "audit-log").settings, [sourceSetting.key]);
   assert(!manifest.mcpToolModules[0].settingsKeys.includes(sourceSetting.key));
   assert(!manifest.settings.some(({ key }) => key === "recordSpeechText"));
