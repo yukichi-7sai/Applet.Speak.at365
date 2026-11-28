@@ -5,8 +5,8 @@
   "displayName": "Speak",
   "tagline": "AIの言葉に、声を。",
   "description": "[setting:tts]を使って、AIの言葉を読み上げるMCPツールです。文章の自動分割やユーザー辞書で、読み上げを好みに合わせられます。",
-  "version": "0.22.0",
-  "minimumHostVersion": "0.307.0",
+  "version": "0.23.0",
+  "minimumHostVersion": "0.331.0",
   "runtime": "node",
   "entry": "index.cjs",
   "capabilities": [
@@ -35,15 +35,7 @@
       "type": "boolean",
       "default": false,
       "automation": false,
-      "description": "「監査ログの内容をマスクする」がONでも、読み上げツールに渡された端末名・チャットタイトルなどを監査ログに保存します。OFFでは発信元を保存しません。"
-    },
-    {
-      "key": "recordSpeechText",
-      "title": "読み上げの本文を記録する",
-      "type": "boolean",
-      "default": false,
-      "automation": false,
-      "description": "「監査ログの内容をマスクする」がONでも、読み上げツールが受け取った原文を受付時に1回だけ保存します。OFFでは本文を監査ログに保存しません。"
+      "description": "読み上げツールに渡された端末名・チャットタイトルなどを監査ログへ渡します。「監査ログの内容をマスクする」がONの場合は伏字で保存します。OFFでは発信元を渡しません。"
     },
     {
       "key": "saveAudio",
@@ -243,7 +235,7 @@
     {
       "id": "audit-log",
       "title": "監査ログ",
-      "settings": ["recordSpeechSource", "recordSpeechText"]
+      "settings": ["recordSpeechSource"]
     },
     {
       "id": "text-additions",

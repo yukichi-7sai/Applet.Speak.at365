@@ -82,14 +82,13 @@ test("speech accepts optional caller labels and sends only synthesis inputs afte
   assert(manifest.mcpToolModules[0].settingsKeys.includes(nameMatch.key));
   assert.doesNotMatch(tool[0].description, /完全一致|前方一致/);
   assert.doesNotMatch(tool[0].inputSchema.properties.connectionName.description, /完全一致|前方一致/);
-  for (const key of ["recordSpeechSource", "recordSpeechText"]) {
-    const field = manifest.settings.find((item) => item.key === key);
-    assert.equal(field.type, "boolean");
-    assert.equal(field.default, false);
-    assert.equal(field.automation, false);
-    assert(manifest.settingSections.find((section) => section.id === "audit-log").settings.includes(key));
-    assert(!manifest.mcpToolModules[0].settingsKeys.includes(key));
-  }
+  const sourceSetting = manifest.settings.find((item) => item.key === "recordSpeechSource");
+  assert.equal(sourceSetting.type, "boolean");
+  assert.equal(sourceSetting.default, false);
+  assert.equal(sourceSetting.automation, false);
+  assert.deepEqual(manifest.settingSections.find((section) => section.id === "audit-log").settings, [sourceSetting.key]);
+  assert(!manifest.mcpToolModules[0].settingsKeys.includes(sourceSetting.key));
+  assert(!manifest.settings.some(({ key }) => key === "recordSpeechText"));
   assert.deepEqual(Object.keys(tool[0].inputSchema.properties).sort(), [
     "connectionId",
     "connectionName",
